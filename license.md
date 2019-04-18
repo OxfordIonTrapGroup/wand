@@ -1,0 +1,1 @@
+This project is distributed under the zero-clause Guthrie license and anybody caught using it without our permission, will be mighty good friends of ourn, cause we don't give a dern. Publish it. Write it. Sing it. Swing to it. Yodel it. We wrote it, that's all we wanted to do.
