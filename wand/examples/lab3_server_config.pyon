@@ -1,0 +1,79 @@
+{
+    "name": "lab3",
+    "osas": {
+        "blue": {
+            "v_span": 2.0,
+            "num_samples": 16000,
+            "downsample": 10,
+            "f0": 6303.644457057647,
+            "sample_rate": 1250000.0,
+            "device": "Dev1",
+            "trigger_channel": "PFI0",
+            "input_channel": "ai0"
+        },
+        "red": {
+            "v_span": 2.0,
+            "num_samples": 16000,
+            "downsample": 10,
+            "f0": 11364.432704841385,
+            "sample_rate": 1250000.0,
+            "device": "Dev1",
+            "trigger_channel": "PFI2",
+            "input_channel": "ai1"
+        }
+    },
+    "lasers": {
+        "lab3_hene": {
+            "osa": "red",
+            "f_ref": 473612329100000.0,
+            "channel": 7,
+            "exposure": 30
+        },
+        "lab3_850": {
+            "osa": "red",
+            "f_ref": 352682630000000.0,
+            "channel": 4,
+            "exposure": 2
+        },
+        "lab3_397_raman": {
+            "osa": "blue",
+            "f_ref": 755222800000000.0,
+            "channel": 6,
+            "exposure": 30
+        },
+        "lab3_393": {
+            "osa": "blue",
+            "f_ref": 761905010000000.0,
+            "channel": 2,
+            "exposure": 2
+        },
+        "lab3_854": {
+            "lock_poll_time": 0.1,
+            "osa": "red",
+            "host": "10.255.6.115",
+            "channel": 5,
+            "lock_gain": 1e-08,
+            "f_ref": 350862770000000.0,
+            "exposure": 8
+        },
+        "lab3_866": {
+            "osa": "red",
+            "f_ref": 346000070000000.0,
+            "channel": 3,
+            "exposure": 2
+        },
+        "lab3_397": {
+            "lock_poll_time": 1,
+            "osa": "blue",
+            "host": "10.255.6.43",
+            "channel": 1,
+            "lock_gain": 1e-10,
+            "f_ref": 755222800000000.0,
+            "exposure": 2
+        }
+    },
+    "switch": {
+        "type": "leoni",
+        "ip": "10.255.6.147"
+    }
+}
