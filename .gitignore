@@ -1,0 +1,5 @@
+**/__pycache__
+*.egg-info
+*.pyon
+!wand/examples/*.pyon
+wand/log.txt
