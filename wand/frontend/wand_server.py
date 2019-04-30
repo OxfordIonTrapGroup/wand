@@ -172,6 +172,25 @@ class WandServer:
 
             save_laser_db = False
 
+            # task: set auto exposure
+            auto_exposure_tasks = [task for task in self.queue
+                                   if task["type"] == "set_auto_exposure"]
+            while auto_exposure_tasks:
+                laser = auto_exposure_tasks[0]["laser"]
+                laser_tasks = [task for task in auto_exposure_tasks
+                               if task["laser"] == laser]
+                task = laser_tasks[-1]
+
+                enabled = task["enabled"]
+                if self.laser_db.read[laser]["auto_exposure"] != enabled:
+                    self.laser_db[laser]["auto_exposure"] = enabled
+                    save_laser_db = True
+
+                for task in laser_tasks:
+                    task["done"].set()
+                    self.queue.remove(task)
+                    auto_exposure_tasks.remove(task)
+
             # task: set laser reference frequency
             f_ref_tasks = [task for task in self.queue
                            if task["type"] == "set_f_ref"]
@@ -198,19 +217,31 @@ class WandServer:
                               if task["type"] == "set_exposure"]
             while exposure_tasks:
 
-                # get the most recent exposure for this laser in the queue
+                # only execute the most recent queued update for a given
+                # laser ccd
                 laser = exposure_tasks[0]["laser"]
                 laser_tasks = [task for task in exposure_tasks
                                if task["laser"] == laser]
-                task = laser_tasks[-1]
-                exposure = task["exposure"]
 
-                if self.laser_db.read[laser]["exposure"] != exposure:
-                    self.laser_db[laser]["exposure"] = exposure
+                curr_exposures = self.laser_db.read[laser]["exposure"]
+                for ccd, curr_exp in enumerate(curr_exposures):
+                    ccd_tasks = [task for task in laser_tasks
+                                 if task["ccd"] == ccd]
+
+                    if not ccd_tasks:
+                        continue
+
+                    task = ccd_tasks[-1]
+                    new_exp = task["exposure"]
+
+                    if new_exp == curr_exp:
+                        continue  # nothing to do here
+
+                    self.laser_db[laser]["exposure"][ccd] = new_exp
                     save_laser_db = True
 
                     if active_laser == task["laser"]:
-                        self.wlm.set_exposure(exposure)
+                        self.wlm.set_exposure(new_exp, ccd)
 
                 for task in laser_tasks:
                     task["done"].set()
@@ -234,31 +265,45 @@ class WandServer:
                 self.switch.set_active_channel(
                     self.laser_db.read[next_task["laser"]]["channel"])
                 exposure = self.laser_db.read[next_task["laser"]]["exposure"]
-                self.wlm.set_exposure(exposure)
+                for ccd, exp in enumerate(exposure):
+                    self.wlm.set_exposure(exposure[ccd], ccd)
 
                 # Switching is slow so we might as well take an OSA trace while
                 # we're at it
                 next_task["get_osa_trace"] = True
-
                 active_laser = next_task["laser"]
+
                 await asyncio.sleep(self.args.switch_dead_time)
 
             freq_measurement = self.loop.run_in_executor(
                 self.executor,
                 self.take_freq_measurement,
-                next_task["laser"])
+                active_laser)
             osa_measurement = self.loop.run_in_executor(
                 self.executor,
                 self.take_osa_measurement,
-                next_task["laser"],
+                active_laser,
                 next_task["get_osa_trace"])
 
-            freq, osa = (await asyncio.gather(freq_measurement,
-                                              osa_measurement))[:]
+            wlm_data, osa = (await asyncio.gather(freq_measurement,
+                                                  osa_measurement))[:]
 
-            self.freq_db[next_task["laser"]] = freq
+            freq, peaks = wlm_data
+            self.freq_db[active_laser] = freq
             if next_task["get_osa_trace"]:
-                self.osa_db[next_task["laser"]] = osa
+                self.osa_db[active_laser] = osa
+
+            # auto-exposure
+            for ccd, peak in enumerate(peaks):
+                if not (0.3 < peak < 0.7):
+                    print(ccd, peak)
+                    exp = self.laser_db.read[active_laser]["exposure"][ccd]
+                    new_exp = exp + 1 if peak < 0.3 else exp - 1
+                    new_exp = min(new_exp, self.wlm.get_exposure_max())
+                    new_exp = max(new_exp, self.wlm.get_exposure_min())
+                    self.laser_db[active_laser]["exposure"][ccd] = new_exp
+                    save_laser_db = True
+                    self.wlm.set_exposure(new_exp, ccd)
 
             # check which other tasks wanted this data
             for task in measure_tasks:
@@ -273,13 +318,17 @@ class WandServer:
             await asyncio.sleep(0)
 
     def take_freq_measurement(self, laser):
-        """ Preform a frequency measurement """
+        """ Preform a frequency measurement and, if necessary, adjust the
+        wlm exposure time. """
         logger.info("Taking new frequency measurement for {}".format(laser))
 
+        status, freq = self.wlm.get_frequency()
         freq = {
-            "freq": self.wlm.get_frequency(),
+            "freq": freq,
+            "status": int(status),
             "timestamp": time.time()
         }
+        print(freq)
 
         # make simulation data more interesting!
         if self.args.simulation:
@@ -291,7 +340,15 @@ class WandServer:
             self.freq_db.read[laser]["timestamp"],
             self.freq_db.read[laser]["freq"]))
 
-        return freq
+        # auto-exposure
+        if self.laser_db.read[laser]["auto_exposure"]:
+            peaks = [0]*self.wlm.get_num_ccds()
+            for ccd in range(len(peaks)):
+                peaks[ccd] = self.wlm.get_fringe_peak(ccd)
+        else:
+            peaks = []
+
+        return freq, peaks
 
     def take_osa_measurement(self, laser, get_osa_trace):
         """ Capture an osa trace """
@@ -342,8 +399,10 @@ class WandServer:
             :param offset_mode: if True, frequencies are returned as detunings
               from the reference frequency (default: False)
             :return: if mute is True, returns None, otherwise it returns either
-              freq or (freq, osa_trace) depending on whether get_osa_trace is
-              True
+              status, freq or (status, freq, osa_trace) depending on whether
+              get_osa_trace is True. Status is a
+              wand.tools.WLMMeasurementStatus (cast to an int to seralize).
+              freq is in Hz
             """
             if laser not in self.server.laser_db.read.keys():
                 raise ValueError("unrecognised laser name '{}'".format(laser))
@@ -404,15 +463,16 @@ class WandServer:
                 return task["id"]
 
             freq = self.server.freq_db.read[laser]["freq"]
+            status = self.server.freq_db.read[laser]["status"]
             if offset_mode:
                 f_ref = self.server.laser_db.read[laser]["f_ref"]
                 freq = freq - f_ref
 
             if not get_osa_trace:
-                return freq
+                return status, freq
 
             osa = self.server.osa_db.read[laser]["trace"]
-            return (freq, osa)
+            return (status, freq, osa)
 
         def get_task_queue(self):
             """
@@ -423,11 +483,12 @@ class WandServer:
                 del task["done"]
             return queue
 
-        async def set_exposure(self, laser, exposure, blocking=False):
+        async def set_exposure(self, laser, exposure, ccd, blocking=False):
             """ Sets the exposure time for a laser
 
             :param laser: name of the laser
             :param exposure: exposure time (ms)
+            :param ccd: the CCD number. Must lie in range(get_num_wlm_ccds())
             :param blocking: if True, this function blocks until the WLM
               exposure update has completed
             """
@@ -436,6 +497,8 @@ class WandServer:
             if exposure < self.server.wlm.get_exposure_min() or \
                exposure > self.server.wlm.get_exposure_max():
                 raise ValueError("invalid exposure")
+            if ccd not in range(self.get_num_wlm_ccds()):
+                raise ValueError("invalid WLM CCD number")
             if not isinstance(blocking, bool):
                 raise ValueError("blocking must be a bool")
 
@@ -443,6 +506,7 @@ class WandServer:
                 "type": "set_exposure",
                 "laser": laser,
                 "exposure": exposure,
+                "ccd": ccd,
                 "done": asyncio.Event(),
                 "id": next(self.server.task_ids)
             }
@@ -459,6 +523,22 @@ class WandServer:
             logger.info("set_exposure task with id {} completed".format(
                 task["id"]))
 
+        def set_auto_exposure(self, laser, enabled):
+            """ Enable or disable autoexposure for a given laser """
+            if laser not in self.server.laser_db.read.keys():
+                raise ValueError("unrecognised laser name '{}'".format(laser))
+
+            task = {
+                "type": "set_auto_exposure",
+                "laser": laser,
+                "enabled": enabled,
+                "done": asyncio.Event(),
+                "id": next(self.server.task_ids)
+            }
+
+            self.server.queue.append(task)
+            self.server.tasks_queued.set()
+
         def get_min_exposure(self):
             """
             Returns the WaveLength Meter (WLM) minimum exposure time (ms)
@@ -470,6 +550,10 @@ class WandServer:
             Returns the WaveLength Meter (WLM) maximum exposure time (ms)
             """
             return self.server.wlm.get_exposure_max()
+
+        def get_num_wlm_ccds(self):
+            """ Returns the number of CCDs on the WaveLength meter (WLM) """
+            return self.server.wlm.get_num_ccds()
 
         def get_laser_db(self):
             """ Returns the laser configuration database """

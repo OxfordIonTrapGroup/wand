@@ -13,7 +13,7 @@ from artiq.protocols.pc_rpc import Client as SyncRPCClient
 from artiq.protocols.sync_struct import Subscriber
 
 from wand.drivers.dl_pro import DLPro
-from wand.tools import get_laser_db
+from wand.tools import get_laser_db, WLMMeasurementStatus
 
 
 # verbosity_args() was renamed to add_common_args() in ARTIQ 5.0; support both.
@@ -282,7 +282,8 @@ async def lock_task(laser, locker):
         # infuriating sound!
         laser_iface = locker.laser_sup_db[laser].get("iface")
         if laser_iface is None:
-            laser_iface = DLPro(locker.laser_db[laser]["host"],
+            laser_iface = DLPro(
+                locker.laser_db[laser]["host"],
                 target=locker.laser_db[laser].get("target", "laser1"))
             locker.laser_sup_db[laser]["iface"] = laser_iface
             logger.info("Connected to {} laser".format(laser))
@@ -299,13 +300,13 @@ async def lock_task(laser, locker):
                 break
 
             try:
-                delta = await rpc_client.get_freq(laser,
-                                                  age=0,
-                                                  priority=5,
-                                                  get_osa_trace=False,
-                                                  blocking=True,
-                                                  mute=False,
-                                                  offset_mode=True)
+                status, delta = await rpc_client.get_freq(laser,
+                                                          age=0,
+                                                          priority=5,
+                                                          get_osa_trace=False,
+                                                          blocking=True,
+                                                          mute=False,
+                                                          offset_mode=True)
                 locker.lock_db[laser]["detuning"] = delta
                 locker.lock_db[laser]["freq_timestamp"] = time.time()
             except Exception as e:
@@ -313,6 +314,10 @@ async def lock_task(laser, locker):
                 locker.lock_db[laser]["lock_task"] = None
                 locker.lock_db[laser]["locked"] = False
                 rpc_client.close_rpc()
+
+            if status != WLMMeasurementStatus.OKAY:
+                await asyncio.sleep(locker.laser_db[laser]["lock_poll_time"])
+                continue
 
             detuning = locker.lock_db[laser]["detuning"]
             set_point = locker.lock_db[laser]["set_point"]
@@ -331,7 +336,6 @@ async def lock_task(laser, locker):
             logger.info("{}: f_error {} MHz, Vpzt {} V".format(
                 laser, f_error/1e6, v_pzt))
 
-            # NB this picks up WLM errors so long as f_ref > capture_range
             if abs(f_error) > locker.lock_db[laser]["capture_range"]:
                 logger.warning("{} outside capture range".format(laser))
                 continue

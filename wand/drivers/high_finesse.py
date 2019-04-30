@@ -1,5 +1,6 @@
 import logging
 import time
+from wand.tools import WLMMeasurementStatus
 
 try:  # allow us to run simulations on Linux
     from ctypes import windll, c_double, c_ushort, c_long, c_bool, byref
@@ -19,6 +20,8 @@ class WLMException(Exception):
 class WLM:
     """" Driver for HighFinesse WaveLength Meters (WLM) """
     def __init__(self, simulation):
+        self._num_ccds = 2
+
         self.simulation = simulation
         if self.simulation:
             self._exp_min = 20
@@ -72,7 +75,7 @@ class WLM:
 
         self._exp_min = lib.GetExposureRange(wlm.cExpoMin)
         self._exp_max = lib.GetExposureRange(wlm.cExpoMax)
-        self.exposure = self._exp_min
+        self.exposure = [self._exp_min] * self._num_ccds
 
         if self._exp_min == 0 or self._exp_max == 0:
             raise WLMException("Error finding WLM exposure range")
@@ -138,34 +141,37 @@ class WLM:
                 "Error reading WLM pressure: {}". format(pressure))
         return pressure
 
+    def _update_exposure(self, exposure=None):
+        """ Updates the WLM exposure times:
+
+        :param exposure: if None then we use self.exposure, otherwise this
+        should be a list of exposure times to set.
+        """
+        exposure = self.exposure if exposure is None else exposure
+        for ccd, exp in enumerate(exposure):
+            if 0 > self.lib.SetExposureNum(self.active_switch_ch, ccd+1, exp):
+                raise WLMException(
+                    "Unable to set WLM exposure time for ccd".format(ccd))
+
     def _get_fresh_data(self):
-        """ Get a "fresh" wavelength measurement, guaranteed to occur after
+        """ Gets a "fresh" wavelength measurement, guaranteed to occur after
         this method was called.
 
         The WLM has an (undocumented) internal measurement pipeline three
         events deep. As a result, to get fresh data we need to perform three
         measurements. To minimize the time wasted flushing the measurement
-        pipeline, we turn the exposure time to minimum during the "dummy"
+        pipeline, we set the exposure time to minimum during the "dummy"
         measurements.
         """
-        if 0 > self.lib.SetExposureNum(self.active_switch_ch,
-                                       1,
-                                       self.exposure):
-            raise WLMException("Unable to set WLM exposure time")
-
+        self._update_exposure()  # synchronise WLM with self.exposure
         for pipeline_stage in range(3):
             self._trigger_single_measurement()
-
-            # minimize time we waste flushing the measurement pipeline
             if pipeline_stage == 0:
-                if 0 > self.lib.SetExposureNum(self.active_switch_ch,
-                                               1,
-                                               self._exp_min):
-                    raise WLMException("Unable to set WLM exposure time")
+                self._update_exposure([self._exp_min]*self._num_ccds)
 
     def _trigger_single_measurement(self):
         """
-        Trigger a new WLM measurement cycle and block until it completes.
+        Triggers a new WLM measurement cycle and blocks until it completes.
         """
         self.lib.ClearWLMEvents()  # flush the WLM pipeline
 
@@ -217,13 +223,15 @@ class WLM:
         The frequency measurement is guaranteed to occur after this method is
         called. See :meth _get_fresh_data: for details.
 
-        :returns: the frequency in Hz. Negative values indicate an error, such
-        as incorrect exposure.
+        :returns: the tupel (status, frequency) where status is a
+          WLMMeasurementStatus and frequency is in Hz.
         """
         if self.simulation:
             return 0
 
         # this should never time out, but it does...
+        # I've had a long discussion with the HF engineers about why this
+        # occurs on some units, without any real success.
         for attempt in range(10):
             try:
                 self._get_fresh_data()
@@ -232,11 +240,16 @@ class WLM:
             except WLMException:
                 pass
         else:
-            raise WLMException("TOO MANY TIME OUTS FFS")
+            raise WLMException("Too many time outs during frequency reading")
 
         if freq > 0:
-            freq = freq*1e12  # convert from THz to Hz
-        return freq
+            return WLMMeasurementStatus.OKAY, freq*1e12
+        elif freq == wlm.ErrBigSignal:
+            return WLMMeasurementStatus.OVER_EXPOSED, 0
+        elif freq == wlm.ErrLowSignal:
+            return WLMMeasurementStatus.UNDER_EXPOSED, 0
+        else:
+            raise WLMException(freq)
 
     def get_exposure_min(self):
         """ Returns the minimum exposure time in ms """
@@ -246,18 +259,34 @@ class WLM:
         """ Returns the meaximum exposure time in ms """
         return self._exp_max
 
-    def set_exposure(self, exposure):
+    def get_num_ccds(self):
+        """ Returns the number of CCDs on the WLM """
+        return self._num_ccds
+
+    def set_exposure(self, exposure, ccd):
         """ Sets the exposure time for the active channel
 
         :param exposure: exposure time (ms)
+        :param ccd: the WLM ccd to set the exposure for. Must lie in
+          range(self._num_ccds)
         """
         exposure = int(exposure)
         if exposure < self._exp_min or exposure > self._exp_max:
-            raise WLMException("Invalid WLM exposure setting {}".format(
-                exposure))
-        if self.simulation:
-            return
-        self.exposure = exposure
+            raise WLMException("Invalid WLM exposure {}".format(exposure))
+        if ccd not in range(self._num_ccds):
+            raise WLMException("Invalid ccd: {}".format(ccd))
+        self.exposure[ccd] = exposure
+
+    def get_fringe_peak(self, ccd):
+        """ Returns the peak height of the interference pattern normalized
+        to full scale. Used for auto exposure etc """
+        if ccd not in range(self._num_ccds):
+            raise WLMException("Invalid ccd: {}".format(ccd))
+        peak = self.lib.GetAmplitudeNum(1, [wlm.cMax1, wlm.cMax2][ccd], 0)
+        if peak < 0:
+            raise WLMException(
+                "Error reading WLM fring height: {}". format(peak))
+        return peak/4000.  # to do, figure out what the scale factor should be!
 
     def get_switch(self):
         """ :returns: an interface to the WLM integrated switch """

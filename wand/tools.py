@@ -1,3 +1,4 @@
+from enum import IntEnum
 import os
 import datetime
 import asyncio
@@ -10,6 +11,13 @@ from artiq.protocols import pyon
 import wand
 
 logger = logging.getLogger(__name__)
+
+
+class WLMMeasurementStatus(IntEnum):
+    OKAY = 0,
+    UNDER_EXPOSED = 1,
+    OVER_EXPOSED = 2,
+    ERROR = 3
 
 
 def get_config_path(args, name_suffix=""):

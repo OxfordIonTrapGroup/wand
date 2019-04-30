@@ -19,9 +19,7 @@ import pyqtgraph.dockarea as dock
 from PyQt5 import QtGui, QtWidgets
 from quamash import QEventLoop
 
-from wand.drivers.wlm_constants import ErrLowSignal, ErrBigSignal
-
-from wand.tools import load_config, get_laser_db
+from wand.tools import load_config, get_laser_db, WLMMeasurementStatus
 
 # verbosity_args() was renamed to add_common_args() in ARTIQ 5.0; support both.
 try:
@@ -142,6 +140,7 @@ class WandGUI():
                     display.update_reference()
                     display.update_osa_trace()
                     display.update_fast_mode()
+                    display.update_auto_exposure()
             return
 
         elif mod["action"] == "setitem":
@@ -162,10 +161,12 @@ class WandGUI():
             elif db == "laser_db":
                 if mod["key"] == "f_ref":
                     self.laser_displays[laser].update_reference()
-                if mod["key"] == "exposure":
+                if len(mod["path"]) > 1 and mod["path"][1] == "exposure":
                     self.laser_displays[laser].update_exposure()
                 if mod["key"] == "fast_mode":
                     self.laser_displays[laser].update_fast_mode()
+                if mod["key"] == "auto_exposure":
+                    self.laser_displays[laser].update_auto_exposure()
 
         else:
             raise ValueError("Unexpected 'notifier' modification")
@@ -202,6 +203,7 @@ class WandGUI():
 
             data_expiry = data_timestamp + poll_time
             next_measurement_in = data_expiry - time.time()
+
             if next_measurement_in >= 0:
                 loop_running.clear()
                 self.loop.call_later(next_measurement_in, loop_running.set)
@@ -330,12 +332,15 @@ class LaserDisplay:
         self.osa_curve = self.osa.plot(pen='y', color=self.colour)
 
         self.fast_mode = QtGui.QCheckBox("Fast mode")
+        self.auto_exposure = QtGui.QCheckBox("Auto expose")
 
-        self.exposure = QtGui.QLineEdit()
-        self.exposure = QtGui.QSpinBox()
-        self.exposure.setSuffix(" ms")
-        self.exposure.setRange(self._gui.laser_sup_db[self.laser]["exp_min"],
-                               self._gui.laser_sup_db[self.laser]["exp_max"])
+        self.exposure = [QtGui.QSpinBox() for _ in range(2)]
+        for idx in range(2):
+
+            self.exposure[idx].setSuffix(" ms")
+            self.exposure[idx].setRange(
+                self._gui.laser_sup_db[self.laser]["exp_min"],
+                self._gui.laser_sup_db[self.laser]["exp_max"])
 
         self.f_ref = QtGui.QDoubleSpinBox()
         self.f_ref.setSuffix(" THz")
@@ -361,20 +366,26 @@ class LaserDisplay:
         self.layout.addItem(self.name)
         self.layout.addItem(self.frequency)
 
-        self.dock.addWidget(self.layout, colspan=7)
+        self.dock.addWidget(self.layout, colspan=6)
+
         self.dock.addWidget(self.fast_mode, row=1, col=1)
-        self.dock.addWidget(QtGui.QLabel("Reference"), row=1, col=3)
-        self.dock.addWidget(QtGui.QLabel("Exposure (ms)"), row=1, col=5)
-        self.dock.addWidget(self.f_ref, row=2, col=3)
-        self.dock.addWidget(self.exposure, row=2, col=5)
+        self.dock.addWidget(self.auto_exposure, row=2, col=1)
+
+        self.dock.addWidget(QtGui.QLabel("Reference"), row=1, col=2)
+        self.dock.addWidget(QtGui.QLabel("Exposure 0 (ms)"), row=1, col=3)
+        self.dock.addWidget(QtGui.QLabel("Exposure 1 (ms)"), row=1, col=4)
+
+        self.dock.addWidget(self.f_ref, row=2, col=2)
+        self.dock.addWidget(self.exposure[0], row=2, col=3)
+        self.dock.addWidget(self.exposure[1], row=2, col=4)
 
         # Sort the layout to make the most of available space
-        self.layout.ci.setSpacing(2)
+        self.layout.ci.setSpacing(4)
         self.layout.ci.setContentsMargins(2, 2, 2, 2)
         self.dock.layout.setContentsMargins(0, 0, 0, 4)
-        for i in [0, 2, 4, 6]:
+        for i in [0, 5]:
             self.dock.layout.setColumnMinimumWidth(i, 4)
-        for i in [1, 3, 5]:
+        for i in [2, 3, 4]:
             self.dock.layout.setColumnStretch(i, 1)
 
         # connect callbacks
@@ -391,14 +402,20 @@ class LaserDisplay:
         self.cb_fut = asyncio.ensure_future(self.cb_loop())
         self.cb_fut.add_done_callback(connection_lost_cb)
 
-        def add_async_cb(cb_type):
-            self.cb_queue.append(cb_type)
+        def add_async_cb(data):
+            self.cb_queue.append(data)
             self.cbs_waiting.set()
 
+        def cb_gen(data):
+            # fix scoping around lambda generation
+            return lambda: add_async_cb(data)
+
         self.zeroAction.triggered.connect(self.zero_cb)
-        self.fast_mode.clicked.connect(lambda: add_async_cb("fast_mode"))
-        self.f_ref.valueChanged.connect(lambda: add_async_cb("f_ref"))
-        self.exposure.valueChanged.connect(lambda: add_async_cb("exposure"))
+        self.fast_mode.clicked.connect(cb_gen(("fast_mode",)))
+        self.auto_exposure.clicked.connect(cb_gen(("auto_expose",)))
+        self.f_ref.valueChanged.connect(cb_gen(("f_ref",)))
+        for ccd, exp in enumerate(self.exposure):
+            exp.valueChanged.connect(cb_gen(("exposure", ccd)))
 
         server = self._gui.laser_sup_db[self.laser]["server"]
         server_cfg = self._gui.config["servers"][server]
@@ -419,12 +436,14 @@ class LaserDisplay:
                 del self.cb_queue[0]
                 self.cb_queue = list(set(self.cb_queue))
 
-                if next_cb == "fast_mode":
+                if next_cb[0] == "fast_mode":
                     await self.fast_mode_cb()
-                elif next_cb == "f_ref":
+                if next_cb[0] == "auto_expose":
+                    await self.auto_expose_cb()
+                elif next_cb[0] == "f_ref":
                     await self.f_ref_cb()
-                elif next_cb == "exposure":
-                    await self.exposure_cb()
+                elif next_cb[0] == "exposure":
+                    await self.exposure_cb(next_cb[1])
 
             if not self.cb_queue:
                 self.cbs_waiting.clear()
@@ -442,6 +461,15 @@ class LaserDisplay:
 
         if self.fast_mode.isChecked():
             self._gui.laser_sup_db[laser]["measurement_loop_running"].set()
+
+    async def auto_expose_cb(self):
+        laser = self.laser
+        server_auto_exp = self._gui.laser_db[laser]["auto_exposure"]
+        gui_auto_exp = self.auto_exposure.isChecked()
+
+        if server_auto_exp != gui_auto_exp:
+            await self.client.set_auto_exposure(laser, gui_auto_exp)
+            self._gui.laser_db[laser]["auto_exposure"] = gui_auto_exp
 
     def zero_cb(self):
         """Set the current value as reference (zeros the detuning) """
@@ -461,22 +489,29 @@ class LaserDisplay:
         await self.client.set_reference_freq(self.laser,
                                              self.f_ref.value()*1e12)
 
-    async def exposure_cb(self):
+    async def exposure_cb(self, ccd):
 
-        exposure = self._gui.laser_db[self.laser]["exposure"]
+        exp_gui = self.exposure[ccd].value()
+        exp_db = self._gui.laser_db[self.laser]["exposure"][ccd]
 
-        if self.exposure.value() == exposure:
+        if exp_db == exp_gui:
             return
 
-        self._gui.laser_db[self.laser]["exposure"] = exposure
-        await self.client.set_exposure(self.laser, self.exposure.value())
+        self._gui.laser_db[self.laser]["exposure"][ccd] = exp_gui
+        await self.client.set_exposure(self.laser, self.exposure[ccd].value(),
+                                       ccd)
 
     def update_fast_mode(self):
         server_fast_mode = self._gui.laser_db[self.laser]["fast_mode"]
         self.fast_mode.setChecked(server_fast_mode)
 
+    def update_auto_exposure(self):
+        server_auto_exposure = self._gui.laser_db[self.laser]["auto_exposure"]
+        self.auto_exposure.setChecked(server_auto_exposure)
+
     def update_exposure(self):
-        self.exposure.setValue(self._gui.laser_db[self.laser]["exposure"])
+        for ccd, exp in enumerate(self._gui.laser_db[self.laser]["exposure"]):
+            self.exposure[ccd].setValue(exp)
 
     def update_reference(self):
         self.f_ref.setValue(self._gui.laser_db[self.laser]["f_ref"]/1e12)
@@ -489,22 +524,9 @@ class LaserDisplay:
     def update_freq(self):
 
         freq = self._gui.freq_db[self.laser]["freq"]
+        status = self._gui.freq_db[self.laser]["status"]
 
-        # test for wlm errors...
-        if freq < 0:
-            if freq == ErrLowSignal:
-                freq = "-"
-                detuning = "Low"
-                colour = "ff9900"
-            elif freq == ErrBigSignal:
-                freq = "-"
-                detuning = "High"
-                colour = "ff9900"
-            else:
-                freq = "-"
-                detuning = "Error"
-                colour = "ff9900"
-        else:
+        if status == WLMMeasurementStatus.OKAY:
             colour = self.colour
             f_ref = self._gui.laser_db[self.laser]["f_ref"]
             if abs(freq - f_ref) > 100e9:
@@ -512,6 +534,18 @@ class LaserDisplay:
             else:
                 detuning = "{:.1f}".format((freq-f_ref)/1e6)
             freq = "{:.7f} THz".format(freq/1e12)
+        elif status == WLMMeasurementStatus.UNDER_EXPOSED:
+            freq = "-"
+            detuning = "Low"
+            colour = "ff9900"
+        elif status == WLMMeasurementStatus.OVER_EXPOSED:
+            freq = "-"
+            detuning = "High"
+            colour = "ff9900"
+        else:
+            freq = "-"
+            detuning = "Error"
+            colour = "ff9900"
 
         self.frequency.setText(freq)
         self.detuning.setText(detuning, color=colour)

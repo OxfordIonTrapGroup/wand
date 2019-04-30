@@ -14,6 +14,7 @@ try:
 except ImportError:
     from artiq.tools import verbosity_args as add_common_args
 
+from wand.tools import WLMMeasurementStatus
 
 logger = logging.getLogger(__name__)
 
@@ -57,16 +58,16 @@ def main():
                 client = RPCClient(server["host"], server["control"])
                 lasers = client.get_laser_db()
                 for laser in lasers:
-                    freq = client.get_freq(laser,
-                                           age=args.poll_time,
-                                           priority=3,
-                                           get_osa_trace=False,
-                                           blocking=True,
-                                           mute=False,
-                                           offset_mode=False)
+                    status, freq = client.get_freq(laser,
+                                                   age=args.poll_time,
+                                                   priority=3,
+                                                   get_osa_trace=False,
+                                                   blocking=True,
+                                                   mute=False,
+                                                   offset_mode=False)
 
-                    if freq < 0:
-                        logger.info("{}: no reading")
+                    if status != WLMMeasurementStatus.OKAY:
+                        logger.info("{}: measurement error")
                         continue
 
                     f_ref = lasers[laser]["f_ref"]
