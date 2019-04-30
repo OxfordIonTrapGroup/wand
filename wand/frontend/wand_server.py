@@ -62,8 +62,13 @@ def get_argparser():
                         help="run in simulation mode")
     parser.add_argument("-dt", "--switch-dead-time",
                         default=0.075,
+                        type=float,
                         help="dead time (s) after changing channels on the "
                              "fibre switch (default: '%(default)s')")
+    parser.add_argument("--fast-mode-timeout",
+                        default=1800,
+                        type=int,
+                        help="fast mode timeout (s) (default: '%(default)s')")
     return parser
 
 
@@ -293,10 +298,17 @@ class WandServer:
             if next_task["get_osa_trace"]:
                 self.osa_db[active_laser] = osa
 
+            # fast mode timeout
+            if self.laser_db.read[active_laser]["fast_mode"]:
+                t_en = self.laser_db.read[active_laser]["fast_mode_set_at"]
+                if time.time() > (t_en + self.args.fast_mode_timeout):
+                    self.laser_db[active_laser]["fast_mode"] = False
+                    save_laser_db = True
+                    logger.debug("{} fast mode timeout".format(active_laser))
+
             # auto-exposure
             for ccd, peak in enumerate(peaks):
                 if not (0.3 < peak < 0.7):
-                    print(ccd, peak)
                     exp = self.laser_db.read[active_laser]["exposure"][ccd]
                     new_exp = exp + 1 if peak < 0.3 else exp - 1
                     new_exp = min(new_exp, self.wlm.get_exposure_max())
@@ -328,7 +340,6 @@ class WandServer:
             "status": int(status),
             "timestamp": time.time()
         }
-        print(freq)
 
         # make simulation data more interesting!
         if self.args.simulation:
@@ -607,6 +618,7 @@ class WandServer:
                 raise ValueError("fast_mode must be a bool")
 
             self.server.laser_db[laser]["fast_mode"] = fast_mode
+            self.server.laser_db[laser]["fast_mode_set_at"] = time.time()
             self.server.save_config_file()
 
         def set_lock_params(self, laser, gain, poll_time):
