@@ -621,11 +621,12 @@ class WandServer:
             self.server.laser_db[laser]["fast_mode_set_at"] = time.time()
             self.server.save_config_file()
 
-        def set_lock_params(self, laser, gain, poll_time):
+        def set_lock_params(self, laser, gain, poll_time, capture_range):
             """ Sets the feedback parameters used by wand_lock
 
             :param gain: the feedback gain to use (V/Hz)
             :param poll_time: time (s) between lock updates
+            :param capture_range: lock capture range (Hz)
             """
             if laser not in self.server.laser_db.read.keys():
                 raise ValueError("unrecognised laser name '{}'".format(laser))
@@ -636,9 +637,15 @@ class WandServer:
                and not isinstance(poll_time, float):
                 raise ValueError(
                     "lock poll time must be an integer or float")
+            if not isinstance(capture_range, int) \
+               and not isinstance(capture_range, float):
+                raise ValueError(
+                    "lock capture range must be an integer or float")
 
-            self.server.laser_db[laser]["lock_gain"] = abs(gain)
-            self.server.laser_db[laser]["lock_poll_time"] = abs(poll_time)
+            laser_db = self.server.laser_db
+            laser_db[laser]["lock_gain"] = abs(gain)
+            laser_db[laser]["lock_poll_time"] = abs(poll_time)
+            laser_db[laser]["lock_capture_range"] = abs(capture_range)
             self.server.save_config_file()
 
         def set_lock_status(self, laser, locked, owner):

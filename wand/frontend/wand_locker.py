@@ -65,7 +65,6 @@ class WandLocker:
                 "detuning": None,
                 "Vpzt": None,
                 "freq_timestamp": None,
-                "capture_range": 2e9,
                 # immediately run an iteration of the loop when params change
                 "wake_loop": asyncio.Event()
             }
@@ -151,53 +150,30 @@ class WandLocker:
                 self.lock_db[laser]["lock_task"] = self.loop.create_task(
                     lock_task(laser, self))
 
-    def lock(self, laser, set_point=None, enabled=True, name=None,
-             claim_ownership=False, timeout=300, capture_range=None):
-        """ lock/unlock a laser
+    def lock(self, laser, set_point=None, name="", timeout=300):
+        """ Locks a laser
 
-        See also :meth release:
+        See also :meth unlock:
 
         :param laser: the name of the laser to lock
         :param set_point: the frequency offset (Hz) to lock to. If None, we
           keep the current set-point. NB set-points are not stored by the
           server and must be reprogrammed whenever the locker is restarted
           otherwise they revert to 0 (default: None)
-        :param enabled: if True, the lock is active (default: True). Unlocking
-          a laser releases ownership.
-        :param name: your name -- required to claim ownership of a laser
-          (default: None)
-        :param claim_ownership: if True, you will "own" the laser upon
-          successful completion of this call. Attempts to alter the lock
-          parameters using a different name will raise a LaserOwnedException.
-          Ownership can be lost/given away by: calling this method again with
-          claim_ownership=False; timeout expiring; calling :meth steal:. For
-          shared lasers, where possible, please consider embedding calls to
-          this function within a try ... finally lock(claim_ownership=False)
-          block.
+        :param name: your name. If not "" then you take ownership of the laser,
+          preventing anyone else from locking it. Ownership is released when
+          the laser unlocks. c.f. :meth unlock:
         :param timeout: duration (s) to lock the laser for. After this
           time, the laser is unlocked and any ownership is released. If None:
           (default: 300), the laser is locked indefinitely.
-        :capture_range: lock capture range (Hz). If the frequency error is
-          larger than this then we unlock the laser and release ownership.
-          If None, we keep the current value. NB whenever the locker server is
-          restarted, all capture ranges default to 2GHz.
         """
         if laser not in self.laser_db.keys():
             raise ValueError("Unrecognised laser {}".format(laser))
-
-        if self.laser_db[laser].get("lock_gain") is None:
-            raise ValueError("No lock gain defined for {}".format(laser))
-        if self.laser_db[laser].get("lock_poll_time") is None:
-            raise ValueError("No lock poll time defined for {}".format(laser))
 
         current_owner = self.laser_db[laser]["lock_owner"]
         if current_owner and (current_owner != name):
             raise LaserOwnedException("Laser currently owned by {}!".format(
                 current_owner))
-
-        if claim_ownership and not name:
-            raise ValueError("Grrrr...one cannot claim ownership anonymously! "
-                             "Plant a flag!!")
 
         if set_point is None:
             set_point = self.lock_db[laser].get("set_point")
@@ -206,18 +182,7 @@ class WandLocker:
            and not isinstance(set_point, float):
             raise ValueError("set_point must be an int or a float")
 
-        if capture_range is None:
-            capture_range = self.lock_db[laser].get("capture_range")
-
-        if not isinstance(capture_range, int) \
-           and not isinstance(capture_range, float):
-            raise ValueError("Capture range must be an int or a float")
-
-        if not isinstance(enabled, bool):
-            raise ValueError("enabled must be a bool")
-
         self.lock_db[laser]["set_point"] = set_point
-        self.lock_db[laser]["capture_range"] = capture_range
         self.lock_db[laser]["timeout"] = timeout
 
         server = self.laser_sup_db[laser]["server"]
@@ -226,8 +191,7 @@ class WandLocker:
                                server_cfg["control"],
                                timeout=1)
         try:
-            new_owner = name if (claim_ownership and enabled) else ""
-            client.set_lock_status(laser, enabled, new_owner)
+            client.set_lock_status(laser, True, name)
         finally:
             client.close_rpc()
 
@@ -235,7 +199,7 @@ class WandLocker:
         if self.lock_db[laser]["lock_task"]:
             self.lock_db[laser]["wake_loop"].set()
 
-    def unlock(self, laser, name):
+    def unlock(self, laser, name=""):
         """ Unlock and release ownership of a laser """
         if laser not in self.laser_db.keys():
             raise ValueError("Unrecognised laser {}".format(laser))
@@ -255,11 +219,13 @@ class WandLocker:
         finally:
             client.close_rpc()
 
-    def set_lock_params(self, laser, gain, poll_time):
+    def set_lock_params(self, laser, gain, poll_time, capture_range):
         """ Sets the feedback parameters used by wand_lock
 
         :param gain: the feedback gain to use (V/Hz)
         :param poll_time: time (s) between lock updates
+        :param capture_range: lock capture range (Hz). If the frequency error
+          is larger than this then we unlock the laser and release ownership.
         """
         server = self.laser_sup_db[laser]["server"]
         server_cfg = self.servers[server]
@@ -270,7 +236,7 @@ class WandLocker:
                                server_cfg["control"],
                                timeout=1)
         try:
-            client.set_lock_params(laser, gain, poll_time)
+            client.set_lock_params(laser, gain, poll_time, capture_range)
         finally:
             client.close_rpc()
 
@@ -332,6 +298,8 @@ async def lock_task(laser, locker):
 
         while locker.laser_db[laser]["locked"]:
 
+            locker.lock_db[laser]["wake_loop"].clear()
+
             timeout = locker.lock_db[laser]["timeout"]
             locked_at = locker.laser_db[laser]["locked_at"]
             if timeout is not None and time.time() > (locked_at + timeout):
@@ -375,7 +343,7 @@ async def lock_task(laser, locker):
             logger.info("{}: f_error {} MHz, Vpzt {} V".format(
                 laser, f_error/1e6, v_pzt))
 
-            if abs(f_error) > locker.lock_db[laser]["capture_range"]:
+            if abs(f_error) > locker.laser_db[laser]["lock_capture_range"]:
                 logger.warning("{} outside capture range".format(laser))
                 continue
 
@@ -393,9 +361,9 @@ async def lock_task(laser, locker):
         locker.laser_sup_db[laser]["iface"] = None
     finally:
         await rpc_client.set_lock_status(laser, False, "")
+        locker.lock_db[laser]["lock_task"] = None
         rpc_client.close_rpc()
-
-    logger.info("{} lock task complete".format(laser))
+        logger.info("{} lock task complete".format(laser))
 
 
 def main():
