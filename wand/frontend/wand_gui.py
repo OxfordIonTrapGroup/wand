@@ -356,12 +356,18 @@ class LaserDisplay:
         # Zero frequency menu
         self.menu = QtGui.QMenu()
         self.zeroAction = QtGui.QAction("Set reference to current", self.dock)
+        self.ref_editable = QtGui.QAction("Enable reference changes",
+                                          self.dock)
         self.menu.addAction(self.zeroAction)
+        self.ref_editable.setCheckable(True)
+        self.menu.addAction(self.ref_editable)
 
-        for label in [self.detuning, self.name, self.frequency]:
+        for label in [self.detuning, self.name, self.frequency, self.f_ref]:
             label.contextMenuEvent = lambda ev: self.menu.popup(
                 QtGui.QCursor.pos())
             label.mouseReleaseEvent = lambda ev: None
+
+        self.ref_editable_cb()
 
         # layout GUI
         self.layout.addItem(self.osa, colspan=2)
@@ -418,6 +424,7 @@ class LaserDisplay:
             return lambda: add_async_cb(data)
 
         self.zeroAction.triggered.connect(self.zero_cb)
+        self.ref_editable.triggered.connect(self.ref_editable_cb)
         self.fast_mode.clicked.connect(cb_gen(("fast_mode",)))
         self.auto_exposure.clicked.connect(cb_gen(("auto_expose",)))
         self.f_ref.valueChanged.connect(cb_gen(("f_ref",)))
@@ -479,11 +486,22 @@ class LaserDisplay:
             self._gui.laser_db[laser]["auto_exposure"] = gui_auto_exp
 
     def zero_cb(self):
-        """Set the current value as reference (zeros the detuning) """
+        """ Set the current value as reference (zeros the detuning) """
         freq = self._gui.freq_db[self.laser]["freq"]
         if freq < 0:
             return
         self.f_ref.setValue(freq/1e12)
+
+    def ref_editable_cb(self):
+        """ Enable/disable editing of the frequency reference """
+        if not self.ref_editable.isChecked():
+            self.zeroAction.setEnabled(False)
+            self.f_ref.setReadOnly(True)
+            self.f_ref.setStyleSheet("color: grey")
+        else:
+            self.zeroAction.setEnabled(True)
+            self.f_ref.setReadOnly(False)
+            self.f_ref.setStyleSheet("color: black")
 
     async def f_ref_cb(self):
 
