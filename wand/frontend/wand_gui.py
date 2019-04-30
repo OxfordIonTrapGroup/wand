@@ -353,12 +353,10 @@ class LaserDisplay:
         self.f_ref.setSingleStep(1e-6)
         self.f_ref.setRange(0., 1000.)
 
-        # Zero frequency menu
+        # context menu
         self.menu = QtGui.QMenu()
-        self.zeroAction = QtGui.QAction("Set reference to current", self.dock)
         self.ref_editable = QtGui.QAction("Enable reference changes",
                                           self.dock)
-        self.menu.addAction(self.zeroAction)
         self.ref_editable.setCheckable(True)
         self.menu.addAction(self.ref_editable)
 
@@ -423,7 +421,6 @@ class LaserDisplay:
             # fix scoping around lambda generation
             return lambda: add_async_cb(data)
 
-        self.zeroAction.triggered.connect(self.zero_cb)
         self.ref_editable.triggered.connect(self.ref_editable_cb)
         self.fast_mode.clicked.connect(cb_gen(("fast_mode",)))
         self.auto_exposure.clicked.connect(cb_gen(("auto_expose",)))
@@ -485,21 +482,12 @@ class LaserDisplay:
             await self.client.set_auto_exposure(laser, gui_auto_exp)
             self._gui.laser_db[laser]["auto_exposure"] = gui_auto_exp
 
-    def zero_cb(self):
-        """ Set the current value as reference (zeros the detuning) """
-        freq = self._gui.freq_db[self.laser]["freq"]
-        if freq < 0:
-            return
-        self.f_ref.setValue(freq/1e12)
-
     def ref_editable_cb(self):
         """ Enable/disable editing of the frequency reference """
         if not self.ref_editable.isChecked():
-            self.zeroAction.setEnabled(False)
             self.f_ref.setReadOnly(True)
             self.f_ref.setStyleSheet("color: grey")
         else:
-            self.zeroAction.setEnabled(True)
             self.f_ref.setReadOnly(False)
             self.f_ref.setStyleSheet("color: black")
 
