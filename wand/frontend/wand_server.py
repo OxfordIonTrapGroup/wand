@@ -641,6 +641,21 @@ class WandServer:
             self.server.laser_db[laser]["lock_poll_time"] = abs(poll_time)
             self.server.save_config_file()
 
+        def set_lock_status(self, laser, locked, owner):
+            """ Sets the lock status for a laser """
+            if laser not in self.server.laser_db.read.keys():
+                raise ValueError("unrecognised laser name '{}'".format(laser))
+            if not isinstance(locked, bool):
+                raise ValueError("lock status must be a bool")
+            if not isinstance(owner, str):
+                raise ValueError("lock owner must be a string")
+
+            self.server.laser_db[laser]["locked"] = locked
+            self.server.laser_db[laser]["lock_owner"] = owner
+            self.server.laser_db[laser]["locked_at"] = time.time()
+
+            self.server.save_config_file()
+
 
 def main():
     server = WandServer()

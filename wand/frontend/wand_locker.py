@@ -59,15 +59,15 @@ class WandLocker:
         self.laser_db, self.laser_sup_db = get_laser_db(self.servers)
         self.lock_db = {
             laser: {
-                "locked": False,
                 "set_point": 0,
-                "owner": None,
                 "timeout": None,
                 "lock_task": None,
                 "detuning": None,
                 "Vpzt": None,
                 "freq_timestamp": None,
-                "capture_range": 2e9
+                "capture_range": 2e9,
+                # immediately run an iteration of the loop when params change
+                "wake_loop": asyncio.Event()
             }
             for laser in self.laser_db.keys()}
 
@@ -117,9 +117,11 @@ class WandLocker:
 
             # ask the servers to keep us updated with changes to laser settings
             # like lock gain
+
             subscriber = Subscriber(
                 "laser_db",
                 lambda mod: init_cb(self.laser_db, mod),
+                lambda mod: self._laser_db_cb(mod),
                 disconnect_cb=lambda: self.loop.create_task(
                     reconnect_cb(server)))
 
@@ -127,6 +129,27 @@ class WandLocker:
                 server_cfg["host"], server_cfg["notify"]))
             atexit_register_coroutine(subscriber.close)
             self.subscribers[server] = subscriber
+
+    def _laser_db_cb(self, mod):
+        if mod["action"] == "init":
+            for laser in mod["struct"].keys():
+                if self.lock_db[laser]["lock_task"]:
+                    self.lock_db[laser]["wake_loop"].set()
+                    continue
+                elif mod["struct"][laser].get("locked"):
+                    self.lock_db[laser]["lock_task"] = self.loop.create_task(
+                        lock_task(laser, self))
+
+        if mod["action"] != "setitem" or not isinstance(mod.get("key"), str):
+            return
+
+        if mod["key"].startswith("lock") or mod["key"] == "f_ref":
+            laser = mod["path"][0]
+            if self.lock_db[laser]["lock_task"]:
+                self.lock_db[laser]["wake_loop"].set()
+            elif mod["key"] == "locked" and mod["value"]:
+                self.lock_db[laser]["lock_task"] = self.loop.create_task(
+                    lock_task(laser, self))
 
     def lock(self, laser, set_point=None, enabled=True, name=None,
              claim_ownership=False, timeout=300, capture_range=None):
@@ -139,7 +162,8 @@ class WandLocker:
           keep the current set-point. NB set-points are not stored by the
           server and must be reprogrammed whenever the locker is restarted
           otherwise they revert to 0 (default: None)
-        :param enabled: if True, the lock is active (default: True)
+        :param enabled: if True, the lock is active (default: True). Unlocking
+          a laser releases ownership.
         :param name: your name -- required to claim ownership of a laser
           (default: None)
         :param claim_ownership: if True, you will "own" the laser upon
@@ -166,7 +190,7 @@ class WandLocker:
         if self.laser_db[laser].get("lock_poll_time") is None:
             raise ValueError("No lock poll time defined for {}".format(laser))
 
-        current_owner = self.lock_db[laser]["owner"]
+        current_owner = self.laser_db[laser]["lock_owner"]
         if current_owner and (current_owner != name):
             raise LaserOwnedException("Laser currently owned by {}!".format(
                 current_owner))
@@ -192,37 +216,44 @@ class WandLocker:
         if not isinstance(enabled, bool):
             raise ValueError("enabled must be a bool")
 
-        if enabled and not self.lock_db[laser]["locked"]:
-            self.lock_db[laser]["locked_at"] = time.time()
-
-        if claim_ownership and (name != self.lock_db[laser]["owner"]):
-            self.lock_db[laser]["ownership_claimed_at"] = time.time()
-
         self.lock_db[laser]["set_point"] = set_point
         self.lock_db[laser]["capture_range"] = capture_range
-        self.lock_db[laser]["locked"] = enabled
-        self.lock_db[laser]["timeout"] = None if timeout is None \
-            else time.time() + timeout
+        self.lock_db[laser]["timeout"] = timeout
 
-        if claim_ownership:
-            self.lock_db[laser]["owner"] = name
+        server = self.laser_sup_db[laser]["server"]
+        server_cfg = self.servers[server]
+        client = SyncRPCClient(server_cfg["host"],
+                               server_cfg["control"],
+                               timeout=1)
+        try:
+            new_owner = name if (claim_ownership and enabled) else ""
+            client.set_lock_status(laser, enabled, new_owner)
+        finally:
+            client.close_rpc()
 
-        if self.lock_db[laser]["lock_task"] is None:
-            self.lock_db[laser]["lock_task"] = self.loop.create_task(
-                lock_task(laser, self))
+        # force early loop update
+        if self.lock_db[laser]["lock_task"]:
+            self.lock_db[laser]["wake_loop"].set()
 
     def unlock(self, laser, name):
         """ Unlock and release ownership of a laser """
         if laser not in self.laser_db.keys():
             raise ValueError("Unrecognised laser {}".format(laser))
 
-        current_owner = self.lock_db[laser]["owner"]
+        current_owner = self.laser_db[laser]["lock_owner"]
         if current_owner and (current_owner != name):
-            raise LaserOwnedException("Laser currently owned by {}!".format(
+            raise LaserOwnedException("Lock currently owned by {}!".format(
                 current_owner))
 
-        self.lock_db[laser]["locked"] = False
-        self.lock_db[laser]["owner"] = None
+        server = self.laser_sup_db[laser]["server"]
+        server_cfg = self.servers[server]
+        client = SyncRPCClient(server_cfg["host"],
+                               server_cfg["control"],
+                               timeout=1)
+        try:
+            client.set_lock_status(laser, False, "")
+        finally:
+            client.close_rpc()
 
     def set_lock_params(self, laser, gain, poll_time):
         """ Sets the feedback parameters used by wand_lock
@@ -246,19 +277,27 @@ class WandLocker:
     def get_owner(self, laser):
         """ Returns the current owner of a laser, or None if no one currently
          claims ownership of it """
-        return self.lock_db[laser]["owner"]
+        return self.laser_db[laser]["lock_owner"]
 
     def get_lock_status(self, laser):
         """ Returns a dictionary of information about a laser lock """
-        return {key: value for key, value in self.lock_db[laser].items()
-                if key != "lock_task"}
+        return {key: value for key, value in self.laser_db[laser].items()
+                if key.startswith("lock")}
 
     def steal(self, laser):
         """
         Sets the current owner of laser to None, without changing its lock
         status.
         """
-        self.lock_db[laser]["owner"] = None
+        server = self.laser_sup_db[laser]["server"]
+        server_cfg = self.servers[server]
+        client = SyncRPCClient(server_cfg["host"],
+                               server_cfg["control"],
+                               timeout=1)
+        try:
+            client.set_lock_status(laser, self.laser_db[laser]["locked"], "")
+        finally:
+            client.close_rpc()
 
     def get_laser_dbs(self):
         """ Returns a database of laser parameters stored by the WAnD servers
@@ -277,7 +316,6 @@ async def lock_task(laser, locker):
         await rpc_client.connect_rpc(server_cfg["host"],
                                      server_cfg["control"],
                                      target_name="control")
-
         # don't reconnect to the laser each time we lock as they make an
         # infuriating sound!
         laser_iface = locker.laser_sup_db[laser].get("iface")
@@ -292,12 +330,13 @@ async def lock_task(laser, locker):
 
         logger.info("{} locked".format(laser))
 
-        while locker.lock_db[laser]["locked"]:
+        while locker.laser_db[laser]["locked"]:
 
-            if locker.lock_db[laser]["timeout"] is not None \
-               and (time.time() > locker.lock_db[laser]["timeout"]):
-                logger.info("{} lock timed out".format(laser))
-                break
+            timeout = locker.lock_db[laser]["timeout"]
+            locked_at = locker.laser_db[laser]["locked_at"]
+            if timeout is not None and time.time() > (locked_at + timeout):
+                    logger.info("{} lock timed out".format(laser))
+                    break
 
             try:
                 status, delta = await rpc_client.get_freq(laser,
@@ -309,14 +348,14 @@ async def lock_task(laser, locker):
                                                           offset_mode=True)
                 locker.lock_db[laser]["detuning"] = delta
                 locker.lock_db[laser]["freq_timestamp"] = time.time()
-            except Exception as e:
+            except Exception:
                 locker.lock_db[laser]["lock_task"].cancel()
-                locker.lock_db[laser]["lock_task"] = None
-                locker.lock_db[laser]["locked"] = False
-                rpc_client.close_rpc()
+                assert 0  # should never be reached...
 
             if status != WLMMeasurementStatus.OKAY:
-                await asyncio.sleep(locker.laser_db[laser]["lock_poll_time"])
+                await asyncio.wait(
+                    {locker.lock_db[laser]["wake_loop"].wait()},
+                    timeout=locker.laser_db[laser]["lock_poll_time"])
                 continue
 
             detuning = locker.lock_db[laser]["detuning"]
@@ -345,15 +384,15 @@ async def lock_task(laser, locker):
 
             laser_iface.set_pzt_voltage(v_pzt)
 
-            await asyncio.sleep(locker.laser_db[laser]["lock_poll_time"])
+            await asyncio.wait(
+                {locker.lock_db[laser]["wake_loop"].wait()},
+                timeout=locker.laser_db[laser]["lock_poll_time"])
 
     except Exception:
         laser_iface.close()
         locker.laser_sup_db[laser]["iface"] = None
     finally:
-        locker.lock_db[laser]["locked"] = False
-        locker.lock_db[laser]["owner"] = None
-        locker.lock_db[laser]["lock_task"] = None
+        await rpc_client.set_lock_status(laser, False, "")
         rpc_client.close_rpc()
 
     logger.info("{} lock task complete".format(laser))

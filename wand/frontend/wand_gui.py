@@ -141,6 +141,7 @@ class WandGUI():
                     display.update_osa_trace()
                     display.update_fast_mode()
                     display.update_auto_exposure()
+                    display.update_lock_status()
             return
 
         elif mod["action"] == "setitem":
@@ -167,6 +168,8 @@ class WandGUI():
                     self.laser_displays[laser].update_fast_mode()
                 if mod["key"] == "auto_exposure":
                     self.laser_displays[laser].update_auto_exposure()
+                if mod["key"] in ["locked", "lock_owner"]:
+                    self.laser_displays[laser].update_lock_status()
 
         else:
             raise ValueError("Unexpected 'notifier' modification")
@@ -336,11 +339,13 @@ class LaserDisplay:
 
         self.exposure = [QtGui.QSpinBox() for _ in range(2)]
         for idx in range(2):
-
             self.exposure[idx].setSuffix(" ms")
             self.exposure[idx].setRange(
                 self._gui.laser_sup_db[self.laser]["exp_min"],
                 self._gui.laser_sup_db[self.laser]["exp_max"])
+
+        self.lock_status = QtGui.QLineEdit()
+        self.lock_status.setReadOnly(True)
 
         self.f_ref = QtGui.QDoubleSpinBox()
         self.f_ref.setSuffix(" THz")
@@ -366,7 +371,7 @@ class LaserDisplay:
         self.layout.addItem(self.name)
         self.layout.addItem(self.frequency)
 
-        self.dock.addWidget(self.layout, colspan=6)
+        self.dock.addWidget(self.layout, colspan=7)
 
         self.dock.addWidget(self.fast_mode, row=1, col=1)
         self.dock.addWidget(self.auto_exposure, row=2, col=1)
@@ -374,18 +379,20 @@ class LaserDisplay:
         self.dock.addWidget(QtGui.QLabel("Reference"), row=1, col=2)
         self.dock.addWidget(QtGui.QLabel("Exposure 0 (ms)"), row=1, col=3)
         self.dock.addWidget(QtGui.QLabel("Exposure 1 (ms)"), row=1, col=4)
+        self.dock.addWidget(QtGui.QLabel("Lock status"), row=1, col=5)
 
         self.dock.addWidget(self.f_ref, row=2, col=2)
         self.dock.addWidget(self.exposure[0], row=2, col=3)
         self.dock.addWidget(self.exposure[1], row=2, col=4)
+        self.dock.addWidget(self.lock_status, row=2, col=5)
 
         # Sort the layout to make the most of available space
         self.layout.ci.setSpacing(4)
         self.layout.ci.setContentsMargins(2, 2, 2, 2)
         self.dock.layout.setContentsMargins(0, 0, 0, 4)
-        for i in [0, 5]:
+        for i in [0, 6]:
             self.dock.layout.setColumnMinimumWidth(i, 4)
-        for i in [2, 3, 4]:
+        for i in [2, 3, 4, 5]:
             self.dock.layout.setColumnStretch(i, 1)
 
         # connect callbacks
@@ -549,6 +556,20 @@ class LaserDisplay:
 
         self.frequency.setText(freq)
         self.detuning.setText(detuning, color=colour)
+
+    def update_lock_status(self):
+        locked = self._gui.laser_db[self.laser]["locked"]
+        owner = self._gui.laser_db[self.laser]["lock_owner"]
+
+        if not locked:
+            self.lock_status.setText("unlocked")
+            self.lock_status.setStyleSheet("color: grey")
+        elif owner:
+            self.lock_status.setText("locked by: {}".format(owner))
+            self.lock_status.setStyleSheet("color: red")
+        else:
+            self.lock_status.setText("locked")
+            self.lock_status.setStyleSheet("color: orange")
 
 
 def main():
