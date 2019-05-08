@@ -108,7 +108,7 @@ class WandLocker:
                         logger.info(
                             "Reconnected to server '{}'".format(server))
                         break
-                    except Exception as err:
+                    except Exception:
                         logger.info(
                             "could not connect to '{}' retry in 10s...".format(
                                 server))
@@ -303,8 +303,8 @@ async def lock_task(laser, locker):
             timeout = locker.lock_db[laser]["timeout"]
             locked_at = locker.laser_db[laser]["locked_at"]
             if timeout is not None and time.time() > (locked_at + timeout):
-                    logger.info("{} lock timed out".format(laser))
-                    break
+                logger.info("{} lock timed out".format(laser))
+                break
 
             try:
                 status, delta = await rpc_client.get_freq(laser,

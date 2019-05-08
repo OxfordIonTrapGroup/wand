@@ -24,8 +24,9 @@ class WLM:
 
         self.simulation = simulation
         if self.simulation:
-            self._exp_min = 20
+            self._exp_min = 2
             self._exp_max = 999
+            self._exposure = [self._exp_min] * 2
             return
 
         self.active_switch_ch = 1
@@ -75,7 +76,7 @@ class WLM:
 
         self._exp_min = lib.GetExposureRange(wlm.cExpoMin)
         self._exp_max = lib.GetExposureRange(wlm.cExpoMax)
-        self.exposure = [self._exp_min] * self._num_ccds
+        self._exposure = [self._exp_min] * self._num_ccds
 
         if self._exp_min == 0 or self._exp_max == 0:
             raise WLMException("Error finding WLM exposure range")
@@ -144,10 +145,10 @@ class WLM:
     def _update_exposure(self, exposure=None):
         """ Updates the WLM exposure times:
 
-        :param exposure: if None then we use self.exposure, otherwise this
+        :param exposure: if None then we use self._exposure, otherwise this
         should be a list of exposure times to set.
         """
-        exposure = self.exposure if exposure is None else exposure
+        exposure = self._exposure if exposure is None else exposure
         for ccd, exp in enumerate(exposure):
             if 0 > self.lib.SetExposureNum(self.active_switch_ch, ccd+1, exp):
                 raise WLMException(
@@ -163,7 +164,7 @@ class WLM:
         pipeline, we set the exposure time to minimum during the "dummy"
         measurements.
         """
-        self._update_exposure()  # synchronise WLM with self.exposure
+        self._update_exposure()  # synchronise WLM with self._exposure
         for pipeline_stage in range(3):
             self._trigger_single_measurement()
             if pipeline_stage == 0:
@@ -227,7 +228,7 @@ class WLM:
           WLMMeasurementStatus and frequency is in Hz.
         """
         if self.simulation:
-            return 0
+            return 0, WLMMeasurementStatus.OKAY
 
         # this should never time out, but it does...
         # I've had a long discussion with the HF engineers about why this
@@ -275,13 +276,16 @@ class WLM:
             raise WLMException("Invalid WLM exposure {}".format(exposure))
         if ccd not in range(self._num_ccds):
             raise WLMException("Invalid ccd: {}".format(ccd))
-        self.exposure[ccd] = exposure
+        self._exposure[ccd] = exposure
 
     def get_fringe_peak(self, ccd):
         """ Returns the peak height of the interference pattern normalized
         to full scale. Used for auto exposure etc """
         if ccd not in range(self._num_ccds):
             raise WLMException("Invalid ccd: {}".format(ccd))
+        if self.simulation:
+            return 0.5
+
         peak = self.lib.GetAmplitudeNum(1, [wlm.cMax1, wlm.cMax2][ccd], 0)
         if peak < 0:
             raise WLMException(

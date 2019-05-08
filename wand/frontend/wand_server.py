@@ -187,7 +187,7 @@ class WandServer:
                 task = laser_tasks[-1]
 
                 enabled = task["enabled"]
-                if self.laser_db.read[laser]["auto_exposure"] != enabled:
+                if self.laser_db.raw_view[laser]["auto_exposure"] != enabled:
                     self.laser_db[laser]["auto_exposure"] = enabled
                     save_laser_db = True
 
@@ -208,7 +208,7 @@ class WandServer:
                 task = laser_tasks[-1]
                 f_ref = task["f_ref"]
 
-                if self.laser_db.read[laser]["f_ref"] != f_ref:
+                if self.laser_db.raw_view[laser]["f_ref"] != f_ref:
                     self.laser_db[laser]["f_ref"] = f_ref
                     save_laser_db = True
 
@@ -228,7 +228,7 @@ class WandServer:
                 laser_tasks = [task for task in exposure_tasks
                                if task["laser"] == laser]
 
-                curr_exposures = self.laser_db.read[laser]["exposure"]
+                curr_exposures = self.laser_db.raw_view[laser]["exposure"]
                 for ccd, curr_exp in enumerate(curr_exposures):
                     ccd_tasks = [task for task in laser_tasks
                                  if task["ccd"] == ccd]
@@ -265,11 +265,11 @@ class WandServer:
 
             priorities = [task["priority"] for task in measure_tasks]
             next_task = measure_tasks[priorities.index(max(priorities))]
+            laser_settings = self.laser_db.raw_view[next_task["laser"]]
 
             if next_task["laser"] != active_laser:
-                self.switch.set_active_channel(
-                    self.laser_db.read[next_task["laser"]]["channel"])
-                exposure = self.laser_db.read[next_task["laser"]]["exposure"]
+                self.switch.set_active_channel(laser_settings["channel"])
+                exposure = laser_settings["exposure"]
                 for ccd, exp in enumerate(exposure):
                     self.wlm.set_exposure(exposure[ccd], ccd)
 
@@ -299,8 +299,8 @@ class WandServer:
                 self.osa_db[active_laser] = osa
 
             # fast mode timeout
-            if self.laser_db.read[active_laser]["fast_mode"]:
-                t_en = self.laser_db.read[active_laser]["fast_mode_set_at"]
+            if self.laser_db.raw_view[active_laser]["fast_mode"]:
+                t_en = self.laser_db.raw_view[active_laser]["fast_mode_set_at"]
                 if time.time() > (t_en + self.args.fast_mode_timeout):
                     self.laser_db[active_laser]["fast_mode"] = False
                     save_laser_db = True
@@ -309,7 +309,7 @@ class WandServer:
             # auto-exposure
             for ccd, peak in enumerate(peaks):
                 if not (0.3 < peak < 0.7):
-                    exp = self.laser_db.read[active_laser]["exposure"][ccd]
+                    exp = self.laser_db.raw_view[active_laser]["exposure"][ccd]
                     new_exp = exp + 1 if peak < 0.3 else exp - 1
                     new_exp = min(new_exp, self.wlm.get_exposure_max())
                     new_exp = max(new_exp, self.wlm.get_exposure_min())
@@ -343,16 +343,16 @@ class WandServer:
 
         # make simulation data more interesting!
         if self.args.simulation:
-            freq["freq"] = self.laser_db.read[laser]["f_ref"] \
+            freq["freq"] = self.laser_db.raw_view[laser]["f_ref"] \
                            + np.random.normal(loc=0, scale=10e6)
 
         logger.debug("New frequency data available for {} at {}: {} Hz".format(
             laser,
-            self.freq_db.read[laser]["timestamp"],
-            self.freq_db.read[laser]["freq"]))
+            self.freq_db.raw_view[laser]["timestamp"],
+            self.freq_db.raw_view[laser]["freq"]))
 
         # auto-exposure
-        if self.laser_db.read[laser]["auto_exposure"]:
+        if self.laser_db.raw_view[laser]["auto_exposure"]:
             peaks = [0]*self.wlm.get_num_ccds()
             for ccd in range(len(peaks)):
                 peaks[ccd] = self.wlm.get_fringe_peak(ccd)
@@ -366,16 +366,17 @@ class WandServer:
         if not get_osa_trace:
             return {}
 
-        osa = {"trace": self.osas.get_trace(self.laser_db.read[laser]["osa"]),
+        osa = {"trace": self.osas.get_trace(
+                    self.laser_db.raw_view[laser]["osa"]),
                "timestamp": time.time()
                }
         osa["trace"] = osa["trace"].tolist()  # work around numpy bug
         logger.info("New osa trace available for {} at {}".format(
-            laser, self.osa_db.read[laser]["timestamp"]))
+            laser, self.osa_db.raw_view[laser]["timestamp"]))
         return osa
 
     def save_config_file(self):
-        self.config["lasers"] = self.laser_db.read
+        self.config["lasers"] = self.laser_db.raw_view
         config_path, _ = get_config_path(self.args, "_server")
         pyon.store_file(config_path, self.config)
 
@@ -415,7 +416,7 @@ class WandServer:
               wand.tools.WLMMeasurementStatus (cast to an int to seralize).
               freq is in Hz
             """
-            if laser not in self.server.laser_db.read.keys():
+            if laser not in self.server.laser_db.raw_view.keys():
                 raise ValueError("unrecognised laser name '{}'".format(laser))
             if not isinstance(age, int) and not isinstance(age, float):
                 raise ValueError("age must be an integer or float")
@@ -429,19 +430,19 @@ class WandServer:
                 raise ValueError("mute must be a bool")
 
             expiry = time.time() - max(0, age)
-            freq_ts = self.server.freq_db.read[laser]["timestamp"]
-            osa_ts = self.server.osa_db.read[laser]["timestamp"]
+            freq_ts = self.server.freq_db.raw_view[laser]["timestamp"]
+            osa_ts = self.server.osa_db.raw_view[laser]["timestamp"]
 
             # do we need to take a new measurement?
             if (freq_ts > expiry) and (osa_ts > expiry or not get_osa_trace):
                 if mute or not blocking:
                     return next(self.server.task_ids)  # fake task id
 
-                freq = self.server.freq_db.read[laser]["freq"]
-                osa = self.server.osa_db.read[laser]["trace"]
+                freq = self.server.freq_db.raw_view[laser]["freq"]
+                osa = self.server.osa_db.raw_view[laser]["trace"]
 
                 if offset_mode:
-                    f_ref = self.server.laser_db.read[laser]["f_ref"]
+                    f_ref = self.server.laser_db.raw_view[laser]["f_ref"]
                     freq = freq - f_ref
 
                 if not get_osa_trace:
@@ -473,16 +474,16 @@ class WandServer:
             if mute:
                 return task["id"]
 
-            freq = self.server.freq_db.read[laser]["freq"]
-            status = self.server.freq_db.read[laser]["status"]
+            freq = self.server.freq_db.raw_view[laser]["freq"]
+            status = self.server.freq_db.raw_view[laser]["status"]
             if offset_mode:
-                f_ref = self.server.laser_db.read[laser]["f_ref"]
+                f_ref = self.server.laser_db.raw_view[laser]["f_ref"]
                 freq = freq - f_ref
 
             if not get_osa_trace:
                 return status, freq
 
-            osa = self.server.osa_db.read[laser]["trace"]
+            osa = self.server.osa_db.raw_view[laser]["trace"]
             return (status, freq, osa)
 
         def get_task_queue(self):
@@ -503,7 +504,7 @@ class WandServer:
             :param blocking: if True, this function blocks until the WLM
               exposure update has completed
             """
-            if laser not in self.server.laser_db.read.keys():
+            if laser not in self.server.laser_db.raw_view.keys():
                 raise ValueError("unrecognised laser name '{}'".format(laser))
             if exposure < self.server.wlm.get_exposure_min() or \
                exposure > self.server.wlm.get_exposure_max():
@@ -536,7 +537,7 @@ class WandServer:
 
         def set_auto_exposure(self, laser, enabled):
             """ Enable or disable autoexposure for a given laser """
-            if laser not in self.server.laser_db.read.keys():
+            if laser not in self.server.laser_db.raw_view.keys():
                 raise ValueError("unrecognised laser name '{}'".format(laser))
 
             task = {
@@ -568,14 +569,14 @@ class WandServer:
 
         def get_laser_db(self):
             """ Returns the laser configuration database """
-            return self.server.laser_db.read
+            return self.server.laser_db.raw_view
 
         async def set_reference_freq(self, laser, f_ref, blocking=False):
             """ Sets the reference frequency for a laser (Hz)
             :param blocking: if True, this function blocks until the reference
               update request has been processed
             """
-            if laser not in self.server.laser_db.read.keys():
+            if laser not in self.server.laser_db.raw_view.keys():
                 raise ValueError("unrecognised laser name '{}'".format(laser))
             if not isinstance(f_ref, int) and not isinstance(f_ref, float):
                 raise ValueError(
@@ -612,7 +613,7 @@ class WandServer:
             :param fast_mode: if True, we enable fast mode, if false it is
             disabled
             """
-            if laser not in self.server.laser_db.read.keys():
+            if laser not in self.server.laser_db.raw_view.keys():
                 raise ValueError("unrecognised laser name '{}'".format(laser))
             if not isinstance(fast_mode, bool):
                 raise ValueError("fast_mode must be a bool")
@@ -628,7 +629,7 @@ class WandServer:
             :param poll_time: time (s) between lock updates
             :param capture_range: lock capture range (Hz)
             """
-            if laser not in self.server.laser_db.read.keys():
+            if laser not in self.server.laser_db.raw_view.keys():
                 raise ValueError("unrecognised laser name '{}'".format(laser))
             if not isinstance(gain, int) and not isinstance(gain, float):
                 raise ValueError(
@@ -650,7 +651,7 @@ class WandServer:
 
         def set_lock_status(self, laser, locked, owner):
             """ Sets the lock status for a laser """
-            if laser not in self.server.laser_db.read.keys():
+            if laser not in self.server.laser_db.raw_view.keys():
                 raise ValueError("unrecognised laser name '{}'".format(laser))
             if not isinstance(locked, bool):
                 raise ValueError("lock status must be a bool")

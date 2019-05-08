@@ -30,8 +30,8 @@ class OSAs:
 
         if self.simulation:
             self.f0 = {}
-            for _, osa in self.osas.items():
-                self.f0[osa] = np.random.uniform(0, 1) * osa["num_samples"]
+            for osa_name, osa in self.osas.items():
+                self.f0[osa_name] = np.random.uniform(0, 1)*osa["num_samples"]
             return
 
         try:

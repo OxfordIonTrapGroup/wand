@@ -1,5 +1,4 @@
 """ Wavelength Analysis 'Nd Display GUI """
-
 import argparse
 import logging
 import pkg_resources
@@ -7,25 +6,17 @@ import sys
 import traceback
 import asyncio
 import atexit
-import time
-import numpy as np
+import functools
 
-from artiq.tools import init_logger, atexit_register_coroutine
+from artiq.tools import init_logger, atexit_register_coroutine, add_common_args
 from artiq.protocols.sync_struct import Subscriber
-from artiq.protocols.pc_rpc import AsyncioClient as RPCClient
 
-import pyqtgraph as pg
-import pyqtgraph.dockarea as dock
-from PyQt5 import QtGui, QtWidgets
 from quamash import QEventLoop
+from PyQt5 import QtWidgets, QtGui
+import pyqtgraph.dockarea as dock
 
-from wand.tools import load_config, get_laser_db, WLMMeasurementStatus
-
-# verbosity_args() was renamed to add_common_args() in ARTIQ 5.0; support both.
-try:
-    from artiq.tools import add_common_args
-except ImportError:
-    from artiq.tools import verbosity_args as add_common_args
+from wand.gui import LaserDisplay
+from wand.tools import load_config
 
 
 logger = logging.getLogger(__name__)
@@ -83,16 +74,18 @@ class WandGUI():
                                                exc_traceback)))
 
         self.config = load_config(args, "_gui")
-        self.laser_db, self.laser_sup_db = get_laser_db(self.config["servers"])
+
+        self.laser_db = {}
         self.freq_db = {}
         self.osa_db = {}
+        self.subscribers = {}
 
         self.qapp = QtWidgets.QApplication(["WAnD"])
         self.loop = QEventLoop(self.qapp)
         asyncio.set_event_loop(self.loop)
         atexit.register(self.loop.close)
 
-        # set icon
+        # set program icon
         icon = QtGui.QIcon()
         icon.addFile(pkg_resources.resource_filename("wand", "wand.svg"))
         self.qapp.setWindowIcon(icon)
@@ -115,34 +108,28 @@ class WandGUI():
                 pos = 'right'
                 prev = display.dock
 
-        for laser in self.laser_displays.keys():
-            self.laser_sup_db[laser]["measurement_loop_running"] = \
-                asyncio.Event()
-        self.regular_update_priority = 3
-        self.fast_mode_priority = 2
-
-    def notifier_cb(self, mod, db):
+    def notifier_cb(self, db, server, mod):
         """ Called whenever we get new data from a server "notifier" interface.
 
         NB sync_struct takes care of updating the relevant db for us, so all we
         do here is call the relevant GUI update function.
         """
-        lasers = self.laser_displays.keys()
-        if any([laser not in self.freq_db.keys() for laser in lasers]) \
-           or any([laser not in self.osa_db.keys() for laser in lasers]):
-            return
-
         if mod["action"] == "init":
-            if db == "freq_db" or db == "osa_db":
-                for laser, display in self.laser_displays.items():
-                    self.laser_sup_db[laser]["measurement_loop_running"].set()
-                    display.update_exposure()
-                    display.update_reference()
-                    display.update_osa_trace()
-                    display.update_fast_mode()
-                    display.update_auto_exposure()
-                    display.update_lock_status()
-            return
+            # called when we first connect to a Notifier
+            # we only activate the GUI chanel for a laser once we have initial
+            # data from all three Notifier interfaces (laser, freq, osa)
+            displays = self.laser_displays
+            for laser in mod["struct"].keys():
+                if laser not in set(self.laser_db.keys()).intersection(
+                                    set(self.freq_db.keys())).intersection(
+                                    set(self.osa_db.keys())):
+                    continue
+                if displays[laser].server not in [server, ""]:
+                    logger.error("laser '{}' found on multiple servers")
+                    displays.server = ""
+                else:
+                    displays[laser].server = server
+                displays[laser].wake_loop.set()
 
         elif mod["action"] == "setitem":
             if mod["path"] == []:
@@ -150,432 +137,116 @@ class WandGUI():
             else:
                 laser = mod["path"][0]
 
-            if laser not in lasers:
+            if laser not in self.laser_displays.keys():
                 return
 
             if db == "freq_db":
                 self.laser_displays[laser].update_freq()
-                self.laser_sup_db[laser]["measurement_loop_running"].set()
             elif db == "osa_db":
                 self.laser_displays[laser].update_osa_trace()
-                self.laser_sup_db[laser]["measurement_loop_running"].set()
             elif db == "laser_db":
                 if mod["key"] == "f_ref":
                     self.laser_displays[laser].update_reference()
-                if len(mod["path"]) > 1 and mod["path"][1] == "exposure":
+                elif len(mod["path"]) > 1 and mod["path"][1] == "exposure":
                     self.laser_displays[laser].update_exposure()
-                if mod["key"] == "fast_mode":
+                elif mod["key"] == "fast_mode":
                     self.laser_displays[laser].update_fast_mode()
-                if mod["key"] == "auto_exposure":
+                elif mod["key"] == "auto_exposure":
                     self.laser_displays[laser].update_auto_exposure()
-                if mod["key"] in ["locked", "lock_owner"]:
+                elif mod["key"] in ["locked", "lock_owner"]:
                     self.laser_displays[laser].update_lock_status()
-
         else:
-            raise ValueError("Unexpected 'notifier' modification")
-
-    async def measurement_loop(self, laser):
-        """
-        Ask the server for fresh frequency and OSA data whenever we need it
-        """
-
-        # connect to server "control" (RPC) interface
-        server = self.laser_sup_db[laser]["server"]
-        client = RPCClient()
-        await client.connect_rpc(self.config["servers"][server]["host"],
-                                 self.config["servers"][server]["control"],
-                                 target_name="control")
-        atexit.register(client.close_rpc)
-
-        display = self.laser_displays[laser]
-
-        loop_running = self.laser_sup_db[laser]["measurement_loop_running"]
-        await loop_running.wait()
-
-        while not self.win.exit_request.is_set():
-
-            if display.fast_mode.isChecked():
-                poll_time = self.args.poll_time_fast
-                priority = self.fast_mode_priority
-            else:
-                poll_time = self.args.poll_time
-                priority = self.regular_update_priority
-
-            data_timestamp = min(self.freq_db[laser]["timestamp"],
-                                 self.osa_db[laser]["timestamp"])
-
-            data_expiry = data_timestamp + poll_time
-            next_measurement_in = data_expiry - time.time()
-
-            if next_measurement_in >= 0:
-                loop_running.clear()
-                self.loop.call_later(next_measurement_in, loop_running.set)
-                await loop_running.wait()
-                continue
-
-            try:
-                await client.get_freq(laser=laser,
-                                      age=poll_time,
-                                      priority=priority,
-                                      get_osa_trace=True,
-                                      blocking=True,
-                                      mute=True)
-            except SyntaxError:
-                break
-
-            # we'll get new timestamps via the notifier interface eventually,
-            # but this gives us something to work with for now...
-            self.freq_db[laser]["timestamp"] = time.time()
-            self.osa_db[laser]["timestamp"] = time.time()
-
-        client.close_rpc()
+            raise ValueError("Unexpected 'notifier' modification: {}"
+                             .format(mod))
 
     def start(self):
+        """ Connect to the WaND servers """
 
-        def connection_lost_cb(server):
-            if self.win.exit_request.is_set():
-                return
-            logger.error("Connection to server '{}' lost, closing".format(
-                server))
-            self.win.exit_request.set()
-
-        # request frequency/osa updates for our lasers
-        for laser in self.laser_displays.keys():
-            server = self.laser_sup_db[laser]["server"]
-            fut = asyncio.ensure_future(self.measurement_loop(laser))
-            fut.add_done_callback(lambda fut: connection_lost_cb(server))
-            self.laser_sup_db[laser]["measurement_loop_fut"] = fut
-
-        # connect to server notifier and control interfaces
         def init_cb(db, mod):
             db.update(mod)
             return db
 
+        async def subscriber_reconnect(self, server, db):
+
+            logger.info("No connection to server '{}'".format(server))
+
+            for _, display in self.laser_displays.items():
+                if display.server == server:
+                    display.server = ""
+                    display.wake_loop.set()
+
+            server_cfg = self.config["servers"][server]
+            subscriber = self.subscribers[server][db]
+
+            if self.win.exit_request.is_set():
+                return
+
+            subscriber.disconnect_cb = functools.partial(
+                asyncio.ensure_future,
+                subscriber_reconnect(self, server, db))
+
+            while not self.win.exit_request.is_set():
+                try:
+                    await subscriber.connect(server_cfg["host"],
+                                             server_cfg["notify"])
+
+                    logger.info("Reconnected to server '{}'".format(server))
+                    break
+                except ConnectionError:
+                    logger.info("could not connect to '{}' retry in 10s..."
+                                .format(server))
+                    await asyncio.sleep(10)
+
         for server, server_cfg in self.config["servers"].items():
+            self.subscribers[server] = {}
+
             # ask the servers to keep us updated with changes to laser settings
             # (exposures, references, etc)
             subscriber = Subscriber(
                 "laser_db",
-                lambda mod: init_cb(self.laser_db, mod),
-                lambda mod: self.notifier_cb(mod, "laser_db"),
-                disconnect_cb=lambda: connection_lost_cb(server))
-            self.loop.run_until_complete(subscriber.connect(
-                server_cfg["host"], server_cfg["notify"]))
-            atexit_register_coroutine(subscriber.close)
+                functools.partial(init_cb, self.laser_db),
+                functools.partial(self.notifier_cb, "laser_db", server))
+            self.subscribers[server]["laser_db"] = subscriber
+            asyncio.ensure_future(subscriber_reconnect(self,
+                                                       server,
+                                                       "laser_db"))
 
             # ask the servers to keep us updated with the latest frequency data
             subscriber = Subscriber(
                 "freq_db",
-                lambda mod: init_cb(self.freq_db, mod),
-                lambda mod: self.notifier_cb(mod, "freq_db"),
-                disconnect_cb=lambda: connection_lost_cb(server))
-            self.loop.run_until_complete(subscriber.connect(
-                server_cfg["host"], server_cfg["notify"]))
-            atexit_register_coroutine(subscriber.close)
+                functools.partial(init_cb, self.freq_db),
+                functools.partial(self.notifier_cb, "freq_db", server))
+            self.subscribers[server]["freq_db"] = subscriber
+            asyncio.ensure_future(subscriber_reconnect(self,
+                                                       server,
+                                                       "freq_db"))
 
-        # ask the servers to keep us updated with the latest osa traces
+            # ask the servers to keep us updated with the latest osa traces
             subscriber = Subscriber(
                 "osa_db",
-                lambda mod: init_cb(self.osa_db, mod),
-                lambda mod: self.notifier_cb(mod, "osa_db"),
-                disconnect_cb=lambda: connection_lost_cb(server))
-            self.loop.run_until_complete(subscriber.connect(
-                server_cfg["host"], server_cfg["notify"]))
-            atexit_register_coroutine(subscriber.close)
+                functools.partial(init_cb, self.osa_db),
+                functools.partial(self.notifier_cb, "osa_db", server))
+            self.subscribers[server]["osa_db"] = subscriber
+            asyncio.ensure_future(subscriber_reconnect(self,
+                                                       server,
+                                                       "osa_db"))
 
-        # close down all asyncio tasks gracefully
-        for laser, display in self.laser_displays.items():
-            async def close_display():
-                display.cbs_waiting.set()
-                await display.cb_fut
-
-            async def close_measurement_loop():
-                self.laser_sup_db[laser]["measurement_loop_running"].set()
-                await self.laser_sup_db[laser]["measurement_loop_fut"]
-
-            atexit_register_coroutine(close_display)
-            atexit_register_coroutine(close_measurement_loop)
+        atexit_register_coroutine(self.shutdown)
 
         self.win.showMaximized()
         atexit.register(self.win.exit_request.set)
         self.loop.run_until_complete(self.win.exit_request.wait())
 
-
-class LaserDisplay:
-    """ Diagnostics for one laser """
-
-    def __init__(self, display_name, gui):
-        self._gui = gui
-        self.display_name = display_name
-        self.laser = gui.config["display_names"][display_name]
-
-        if gui.laser_db[self.laser]["osa"] == "blue":
-            self.colour = "5555ff"
-        elif gui.laser_db[self.laser]["osa"] == "red":
-            self.colour = "ff5555"
-        else:
-            self.colour = "7c7c7c"
-
-        self.dock = dock.Dock(self.display_name, autoOrientation=False)
-        self.layout = pg.GraphicsLayoutWidget(border=(80, 80, 80))
-
-        # create widgets
-        self.detuning = pg.LabelItem("")
-        self.detuning.setText("-", color=self.colour, size="64pt")
-
-        self.frequency = pg.LabelItem("")
-        self.frequency.setText("-", color="ffffff", size="12pt")
-
-        self.name = pg.LabelItem("")
-        self.name.setText(display_name, color=self.colour, size="32pt")
-
-        self.osa = pg.PlotItem()
-        self.osa.hideAxis('bottom')
-        self.osa.showGrid(y=True)
-        self.osa_curve = self.osa.plot(pen='y', color=self.colour)
-
-        self.fast_mode = QtGui.QCheckBox("Fast mode")
-        self.auto_exposure = QtGui.QCheckBox("Auto expose")
-
-        self.exposure = [QtGui.QSpinBox() for _ in range(2)]
-        for idx in range(2):
-            self.exposure[idx].setSuffix(" ms")
-            self.exposure[idx].setRange(
-                self._gui.laser_sup_db[self.laser]["exp_min"],
-                self._gui.laser_sup_db[self.laser]["exp_max"])
-
-        self.lock_status = QtGui.QLineEdit()
-        self.lock_status.setReadOnly(True)
-
-        self.f_ref = QtGui.QDoubleSpinBox()
-        self.f_ref.setSuffix(" THz")
-        self.f_ref.setDecimals(7)
-        self.f_ref.setSingleStep(1e-6)
-        self.f_ref.setRange(0., 1000.)
-
-        # context menu
-        self.menu = QtGui.QMenu()
-        self.ref_editable = QtGui.QAction("Enable reference changes",
-                                          self.dock)
-        self.ref_editable.setCheckable(True)
-        self.menu.addAction(self.ref_editable)
-
-        for label in [self.detuning, self.name, self.frequency, self.f_ref]:
-            label.contextMenuEvent = lambda ev: self.menu.popup(
-                QtGui.QCursor.pos())
-            label.mouseReleaseEvent = lambda ev: None
-
-        self.ref_editable_cb()
-
-        # layout GUI
-        self.layout.addItem(self.osa, colspan=2)
-        self.layout.nextRow()
-        self.layout.addItem(self.detuning, colspan=2)
-        self.layout.nextRow()
-        self.layout.addItem(self.name)
-        self.layout.addItem(self.frequency)
-
-        self.dock.addWidget(self.layout, colspan=7)
-
-        self.dock.addWidget(self.fast_mode, row=1, col=1)
-        self.dock.addWidget(self.auto_exposure, row=2, col=1)
-
-        self.dock.addWidget(QtGui.QLabel("Reference"), row=1, col=2)
-        self.dock.addWidget(QtGui.QLabel("Exposure 0 (ms)"), row=1, col=3)
-        self.dock.addWidget(QtGui.QLabel("Exposure 1 (ms)"), row=1, col=4)
-        self.dock.addWidget(QtGui.QLabel("Lock status"), row=1, col=5)
-
-        self.dock.addWidget(self.f_ref, row=2, col=2)
-        self.dock.addWidget(self.exposure[0], row=2, col=3)
-        self.dock.addWidget(self.exposure[1], row=2, col=4)
-        self.dock.addWidget(self.lock_status, row=2, col=5)
-
-        # Sort the layout to make the most of available space
-        self.layout.ci.setSpacing(4)
-        self.layout.ci.setContentsMargins(2, 2, 2, 2)
-        self.dock.layout.setContentsMargins(0, 0, 0, 4)
-        for i in [0, 6]:
-            self.dock.layout.setColumnMinimumWidth(i, 4)
-        for i in [2, 3, 4, 5]:
-            self.dock.layout.setColumnStretch(i, 1)
-
-        # connect callbacks
-        def connection_lost_cb(future):
-            if self._gui.win.exit_request.is_set():
-                return
-            server = self._gui.laser_sup_db[self.laser]["server"]
-            logger.error("Connection to server '{}' lost, closing".format(
-                server))
-            self._gui.win.exit_request.set()
-
-        self.cb_queue = []
-        self.cbs_waiting = asyncio.Event()
-        self.cb_fut = asyncio.ensure_future(self.cb_loop())
-        self.cb_fut.add_done_callback(connection_lost_cb)
-
-        def add_async_cb(data):
-            self.cb_queue.append(data)
-            self.cbs_waiting.set()
-
-        def cb_gen(data):
-            # fix scoping around lambda generation
-            return lambda: add_async_cb(data)
-
-        self.ref_editable.triggered.connect(self.ref_editable_cb)
-        self.fast_mode.clicked.connect(cb_gen(("fast_mode",)))
-        self.auto_exposure.clicked.connect(cb_gen(("auto_expose",)))
-        self.f_ref.valueChanged.connect(cb_gen(("f_ref",)))
-        for ccd, exp in enumerate(self.exposure):
-            exp.valueChanged.connect(cb_gen(("exposure", ccd)))
-
-        server = self._gui.laser_sup_db[self.laser]["server"]
-        server_cfg = self._gui.config["servers"][server]
-
-        self.client = RPCClient()
-        self._gui.loop.run_until_complete(self.client.connect_rpc(
-                server_cfg["host"],
-                server_cfg["control"],
-                target_name="control"))
-        atexit.register(self.client.close_rpc)
-
-    async def cb_loop(self):
-        while not self._gui.win.exit_request.is_set():
-            await self.cbs_waiting.wait()
-
-            if self.cb_queue:
-                next_cb = self.cb_queue[0]
-                del self.cb_queue[0]
-                self.cb_queue = list(set(self.cb_queue))
-
-                if next_cb[0] == "fast_mode":
-                    await self.fast_mode_cb()
-                if next_cb[0] == "auto_expose":
-                    await self.auto_expose_cb()
-                elif next_cb[0] == "f_ref":
-                    await self.f_ref_cb()
-                elif next_cb[0] == "exposure":
-                    await self.exposure_cb(next_cb[1])
-
-            if not self.cb_queue:
-                self.cbs_waiting.clear()
-
-            await asyncio.sleep(0)
-        self.client.close_rpc()
-
-    async def fast_mode_cb(self):
-        laser = self.laser
-        server_fast_mode = self._gui.laser_db[laser]["fast_mode"]
-
-        if server_fast_mode != self.fast_mode.isChecked():
-            await self.client.set_fast_mode(laser, self.fast_mode.isChecked())
-            self._gui.laser_db[laser]["fast_mode"] = self.fast_mode.isChecked()
-
-        if self.fast_mode.isChecked():
-            self._gui.laser_sup_db[laser]["measurement_loop_running"].set()
-
-    async def auto_expose_cb(self):
-        laser = self.laser
-        server_auto_exp = self._gui.laser_db[laser]["auto_exposure"]
-        gui_auto_exp = self.auto_exposure.isChecked()
-
-        if server_auto_exp != gui_auto_exp:
-            await self.client.set_auto_exposure(laser, gui_auto_exp)
-            self._gui.laser_db[laser]["auto_exposure"] = gui_auto_exp
-
-    def ref_editable_cb(self):
-        """ Enable/disable editing of the frequency reference """
-        if not self.ref_editable.isChecked():
-            self.f_ref.setReadOnly(True)
-            self.f_ref.setStyleSheet("color: grey")
-        else:
-            self.f_ref.setReadOnly(False)
-            self.f_ref.setStyleSheet("color: black")
-
-    async def f_ref_cb(self):
-
-        f_ref = self._gui.laser_db[self.laser]["f_ref"]
-
-        if self.f_ref.value()*1e12 == f_ref:
-            return
-
-        self._gui.laser_db[self.laser]["f_ref"] = self.f_ref.value()*1e12
-        await self.client.set_reference_freq(self.laser,
-                                             self.f_ref.value()*1e12)
-
-    async def exposure_cb(self, ccd):
-
-        exp_gui = self.exposure[ccd].value()
-        exp_db = self._gui.laser_db[self.laser]["exposure"][ccd]
-
-        if exp_db == exp_gui:
-            return
-
-        self._gui.laser_db[self.laser]["exposure"][ccd] = exp_gui
-        await self.client.set_exposure(self.laser, self.exposure[ccd].value(),
-                                       ccd)
-
-    def update_fast_mode(self):
-        server_fast_mode = self._gui.laser_db[self.laser]["fast_mode"]
-        self.fast_mode.setChecked(server_fast_mode)
-
-    def update_auto_exposure(self):
-        server_auto_exposure = self._gui.laser_db[self.laser]["auto_exposure"]
-        self.auto_exposure.setChecked(server_auto_exposure)
-
-    def update_exposure(self):
-        for ccd, exp in enumerate(self._gui.laser_db[self.laser]["exposure"]):
-            self.exposure[ccd].setValue(exp)
-
-    def update_reference(self):
-        self.f_ref.setValue(self._gui.laser_db[self.laser]["f_ref"]/1e12)
-        self.update_freq()
-
-    def update_osa_trace(self):
-        trace = np.array(self._gui.osa_db[self.laser]["trace"])/32767
-        self.osa_curve.setData(trace)
-
-    def update_freq(self):
-
-        freq = self._gui.freq_db[self.laser]["freq"]
-        status = self._gui.freq_db[self.laser]["status"]
-
-        if status == WLMMeasurementStatus.OKAY:
-            colour = self.colour
-            f_ref = self._gui.laser_db[self.laser]["f_ref"]
-            if abs(freq - f_ref) > 100e9:
-                detuning = "-"
-            else:
-                detuning = "{:.1f}".format((freq-f_ref)/1e6)
-            freq = "{:.7f} THz".format(freq/1e12)
-        elif status == WLMMeasurementStatus.UNDER_EXPOSED:
-            freq = "-"
-            detuning = "Low"
-            colour = "ff9900"
-        elif status == WLMMeasurementStatus.OVER_EXPOSED:
-            freq = "-"
-            detuning = "High"
-            colour = "ff9900"
-        else:
-            freq = "-"
-            detuning = "Error"
-            colour = "ff9900"
-
-        self.frequency.setText(freq)
-        self.detuning.setText(detuning, color=colour)
-
-    def update_lock_status(self):
-        locked = self._gui.laser_db[self.laser]["locked"]
-        owner = self._gui.laser_db[self.laser]["lock_owner"]
-
-        if not locked:
-            self.lock_status.setText("unlocked")
-            self.lock_status.setStyleSheet("color: grey")
-        elif owner:
-            self.lock_status.setText("locked by: {}".format(owner))
-            self.lock_status.setStyleSheet("color: red")
-        else:
-            self.lock_status.setText("locked")
-            self.lock_status.setStyleSheet("color: orange")
+    async def shutdown(self):
+        self.win.exit_request.set()
+        for _, subs in self.subscribers.items():
+            try:
+                await subs.close()
+                await subs.disconnect_cb()
+            except Exception:
+                pass
+        for _, display in self.laser_displays.items():
+            display.fut.cancel()
 
 
 def main():

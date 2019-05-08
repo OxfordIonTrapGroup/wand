@@ -94,8 +94,9 @@ def get_laser_db(server_db):
             exp_max = client.get_max_exposure()
             client.close_rpc()
         except TimeoutError:
-            raise Exception("Unable to connect to server '{}'".format(
+            logger.error("Unable to connect to server '{}'".format(
                 server_name))
+            continue
 
         for laser_name, laser in server_lasers.items():
             if laser_name in laser_db.keys():
