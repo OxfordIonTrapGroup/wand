@@ -1,6 +1,6 @@
 # WaND Super-Duper Laser Diagnostics
 
-See the [documentation](wand\introduction.md) for an overview of WaND.
+See the [documentation](wand/introduction.md) for an overview of WaND.
 
 ## Installation
 
@@ -12,7 +12,7 @@ From outside Oxford, use Pip to install this into an [ARTIQ](https://github.com/
 
 To start a server run `wand_server -n <name>` where `<name>` is the name of the server.
 
-The name parameter is used to locate the configuration file for the server (named `<name>_server_config.pyon`), which should reside in the root WaND directory. If the configuration file isn't found there, `wand_server` will attempt to copy it from the Oxford shared area (to do: make this less Oxford-specific!). If you're running WaND outside Oxford, you need to manually copy the config file to the root wand directory. You can find an example configuration file in the [examples](wand\examples).
+The name parameter is used to locate the configuration file for the server (named `<name>_server_config.pyon`), which should reside in the root WaND directory. If the configuration file isn't found there, `wand_server` will attempt to copy it from the Oxford shared area (to do: make this less Oxford-specific!). If you're running WaND outside Oxford, you need to manually copy the config file to the root wand directory. You can find an example configuration file in the [examples](wand/examples).
 
 The server can be run in "simulation" mode without hardware access by using the `--simulation` command line argument (use `--help` for a complete list of arguments).
 
