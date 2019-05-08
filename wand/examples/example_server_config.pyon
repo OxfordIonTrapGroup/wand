@@ -1,0 +1,138 @@
+{
+    "lasers": {
+        "example_393": {
+            "auto_exposure": true,
+            "channel": 2,
+            "exposure": [5, 3],
+            "f_ref": 761904799600000.0,
+            "fast_enabled_at": 0,
+            "fast_mode": false,
+            "fast_mode_set_at": 1557316890.1297197,
+            "lock_capture_range": 2000000000.0,
+            "lock_owner": "",
+            "locked": false,
+            "locked_at": 0,
+            "osa": "blue"
+        },
+        "example_397": {
+            "auto_exposure": true,
+            "channel": 1,
+            "exposure": [9, 2],
+            "f_ref": 755222162800000.0,
+            "fast_enabled_at": 0,
+            "fast_mode": false,
+            "fast_mode_set_at": 1557317268.2397196,
+            "host": "10.255.6.43",
+            "lock_capture_range": 2000000000.0,
+            "lock_gain": 1e-11,
+            "lock_owner": "",
+            "lock_poll_time": 0.1,
+            "locked": false,
+            "locked_at": 1556635430.5315378,
+            "osa": "blue"
+        },
+        "example_397_raman": {
+            "auto_exposure": true,
+            "channel": 6,
+            "exposure": [7, 2],
+            "f_ref": 755222800000000.0,
+            "fast_enabled_at": 0,
+            "fast_mode": false,
+            "fast_mode_set_at": 1556712340.9985378,
+            "lock_capture_range": 2000000000.0,
+            "lock_owner": "",
+            "locked": false,
+            "locked_at": 0,
+            "osa": "blue"
+        },
+        "example_850": {
+            "auto_exposure": true,
+            "channel": 4,
+            "exposure": [12, 2],
+            "f_ref": 352682391500000.0,
+            "fast_enabled_at": 0,
+            "fast_mode": false,
+            "fast_mode_set_at": 1556712340.9685378,
+            "host": "10.255.6.120",
+            "lock_capture_range": 2000000000.0,
+            "lock_gain": 1e-10,
+            "lock_owner": "",
+            "lock_poll_time": 10,
+            "locked": false,
+            "locked_at": 0,
+            "osa": "red"
+        },
+        "example_854": {
+            "auto_exposure": true,
+            "channel": 5,
+            "exposure": [8, 4],
+            "f_ref": 350862971100000.0,
+            "fast_enabled_at": 0,
+            "fast_mode": false,
+            "fast_mode_set_at": 1556712341.0285378,
+            "host": "10.255.6.115",
+            "lock_capture_range": 2000000000.0,
+            "lock_gain": 2e-09,
+            "lock_owner": "me",
+            "lock_poll_time": 10,
+            "locked": true,
+            "locked_at": 1556642908.006538,
+            "osa": "red"
+        },
+        "example_866": {
+            "auto_exposure": true,
+            "channel": 8,
+            "exposure": [24, 14],
+            "f_ref": 345999971000000.0,
+            "fast_enabled_at": 0,
+            "fast_mode": false,
+            "fast_mode_set_at": 1557316892.3217196,
+            "lock_capture_range": 2000000000.0,
+            "lock_gain": 1e-10,
+            "lock_owner": "",
+            "lock_poll_time": 10,
+            "locked": false,
+            "locked_at": 1556636337.6695378,
+            "osa": "red"
+        },
+        "example_HeNe": {
+            "auto_exposure": true,
+            "channel": 7,
+            "exposure": [199, 199],
+            "f_ref": 473612329100000.0,
+            "fast_enabled_at": 0,
+            "fast_mode": false,
+            "fast_mode_set_at": 1556712341.1015377,
+            "lock_capture_range": 2000000000.0,
+            "lock_owner": "",
+            "locked": false,
+            "locked_at": 0,
+            "osa": "red"
+        }
+    },
+    "name": "example",
+    "osas": {
+        "blue": {
+            "device": "Dev1",
+            "downsample": 10,
+            "input_channel": "ai0",
+            "num_samples": 16000,
+            "sample_rate": 1250000.0,
+            "trigger_channel": "PFI0",
+            "v_span": 2.0
+        },
+        "red": {
+            "device": "Dev1",
+            "downsample": 10,
+            "input_channel": "ai1",
+            "num_samples": 16000,
+            "sample_rate": 1250000.0,
+            "trigger_channel": "PFI2",
+            "v_span": 2.0
+        }
+    },
+    "switch": {
+        "ip": "10.255.6.147",
+        "type": "leoni"
+    }
+}
