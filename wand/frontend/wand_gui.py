@@ -120,6 +120,9 @@ class WandGUI():
             # data from all three Notifier interfaces (laser, freq, osa)
             displays = self.laser_displays
             for laser in mod["struct"].keys():
+                if laser not in self.laser_displays.keys():
+                    continue
+
                 if laser not in set(self.laser_db.keys()).intersection(
                                     set(self.freq_db.keys())).intersection(
                                     set(self.osa_db.keys())):
