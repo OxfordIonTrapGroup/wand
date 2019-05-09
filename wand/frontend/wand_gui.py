@@ -119,19 +119,25 @@ class WandGUI():
             # we only activate the GUI chanel for a laser once we have initial
             # data from all three Notifier interfaces (laser, freq, osa)
             displays = self.laser_displays
+            self.subscribers[server][db]["connected"] = True
             for laser in mod["struct"].keys():
                 if laser not in self.laser_displays.keys():
                     continue
 
-                if laser not in set(self.laser_db.keys()).intersection(
-                                    set(self.freq_db.keys())).intersection(
-                                    set(self.osa_db.keys())):
+                # check we're connected to the server
+                if (
+                  not self.subscribers[server]["laser_db"]["connected"] or
+                  not self.subscribers[server]["freq_db"]["connected"] or
+                  not self.subscribers[server]["osa_db"]["connected"]
+                ):
                     continue
+
                 if displays[laser].server not in [server, ""]:
                     logger.error("laser '{}' found on multiple servers")
                     displays.server = ""
                 else:
                     displays[laser].server = server
+
                 displays[laser].wake_loop.set()
 
         elif mod["action"] == "setitem":
@@ -173,7 +179,6 @@ class WandGUI():
             return db
 
         async def subscriber_reconnect(self, server, db):
-
             logger.info("No connection to server '{}'".format(server))
 
             for _, display in self.laser_displays.items():
@@ -182,15 +187,16 @@ class WandGUI():
                     display.wake_loop.set()
 
             server_cfg = self.config["servers"][server]
-            subscriber, _ = self.subscribers[server][db]
+            subscriber = self.subscribers[server][db]["subscriber"]
 
             if self.win.exit_request.is_set():
                 return
 
             def make_fut(self, server, db):
-                subscriber, _ = self.subscribers[server][db]
-                fut = asyncio.esure_future(make_fut, self, server, db)
-                self.subscribers[server][db] = subscriber, fut
+                fut = asyncio.ensure_future(
+                    subscriber_reconnect(self, server, db))
+                self.subscribers[server][db]["connected"] = False
+                self.subscribers[server][db]["future"] = fut
 
             subscriber.disconnect_cb = functools.partial(
                 make_fut, self, server, db)
@@ -218,7 +224,11 @@ class WandGUI():
                 functools.partial(self.notifier_cb, "laser_db", server))
             fut = asyncio.ensure_future(
                 subscriber_reconnect(self, server, "laser_db"))
-            self.subscribers[server]["laser_db"] = subscriber, fut
+            self.subscribers[server]["laser_db"] = {
+                "subscriber": subscriber,
+                "connected": False,
+                "future": fut
+            }
 
             # ask the servers to keep us updated with the latest frequency data
             subscriber = Subscriber(
@@ -227,7 +237,11 @@ class WandGUI():
                 functools.partial(self.notifier_cb, "freq_db", server))
             fut = asyncio.ensure_future(
                 subscriber_reconnect(self, server, "freq_db"))
-            self.subscribers[server]["freq_db"] = subscriber, fut
+            self.subscribers[server]["freq_db"] = {
+                "subscriber": subscriber,
+                "connected": False,
+                "future": fut
+            }
 
             # ask the servers to keep us updated with the latest osa traces
             subscriber = Subscriber(
@@ -236,7 +250,11 @@ class WandGUI():
                 functools.partial(self.notifier_cb, "osa_db", server))
             fut = asyncio.ensure_future(
                 subscriber_reconnect(self, server, "osa_db"))
-            self.subscribers[server]["osa_db"] = subscriber, fut
+            self.subscribers[server]["osa_db"] = {
+                "subscriber": subscriber,
+                "connected": False,
+                "future": fut
+            }
 
         atexit_register_coroutine(self.shutdown)
 
@@ -248,7 +266,9 @@ class WandGUI():
         self.win.exit_request.set()
 
         for _, server in self.subscribers.items():
-            for _, (subs, fut) in server.items():
+            for _, subs_dict in server.items():
+                subs = subs_dict["subscriber"]
+                fut = subs_dict["future"]
                 try:
                     await subs.close()
                 except Exception:
