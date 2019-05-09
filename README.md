@@ -4,9 +4,9 @@ Wavelength Analysis and Display laser diagnostics suite.
 
 ![WAnD GUI](docs/wand_gui.png)
 
-A WAnD server (an instance of `wand_server`) controls a single wavelength meter, fibre switcher and set of optical spectrum analysers (OSAs). It provides network interfaces that clients can connect to in order to control the server (e.g. schedule wavelength readings, change exposure times, etc) and to receive updates (parameter changes, new frequency data).
+A WAnD server (an instance of `wand_server`) controls: a wavelength meter; a fibre switch; a set of optical spectrum analysers (OSAs); and, optionally, lasers (for frequency locks). It provides network interfaces that clients can connect to in order to control the server (e.g. schedule wavelength readings, change exposure times, etc) and to receive updates (parameter changes, new frequency data).
 
-WAnD clients, such as the GUI or laser locker, can connect to multiple servers (and, each server can support connections from multiple clients).
+WAnD clients, such as the GUI or an ARTIQ experiment, can connect to multiple servers (and, each server can support connections from multiple clients).
 
 ![WAnD servers and clients](docs/servers_and_clients.png)
 
