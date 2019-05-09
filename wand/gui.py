@@ -23,6 +23,7 @@ class LaserDisplay:
     """ Diagnostics for one laser """
 
     def __init__(self, display_name, gui):
+        self.connected = False
         self._gui = gui
         self.display_name = display_name
         self.laser = gui.config["display_names"][display_name]
@@ -135,6 +136,7 @@ class LaserDisplay:
         """ Enable/disable controls on the gui dependent on whether or not
         the server is connected.
         """
+        self.connected = connected
         if not connected:
             self.ref_editable.blockSignals(True)
             self.fast_mode.blockSignals(True)
@@ -304,18 +306,31 @@ class LaserDisplay:
 
     def update_fast_mode(self):
         server_fast_mode = self._gui.laser_db[self.laser]["fast_mode"]
+        self.fast_mode.blockSignals(True)
         self.fast_mode.setChecked(server_fast_mode)
+        if self.connected:
+            self.fast_mode.blockSignals(False)
 
     def update_auto_exposure(self):
         server_auto_exposure = self._gui.laser_db[self.laser]["auto_exposure"]
+        self.auto_exposure.blockSignals(True)
         self.auto_exposure.setChecked(server_auto_exposure)
+        if self.connected:
+            self.auto_exposure.blockSignals(False)
 
     def update_exposure(self):
         for ccd, exp in enumerate(self._gui.laser_db[self.laser]["exposure"]):
+            self.exposure[ccd].blockSignals(True)
             self.exposure[ccd].setValue(exp)
+            if self.connected:
+                self.exposure[ccd].blockSignals(False)
 
     def update_reference(self):
-        self.f_ref.setValue(self._gui.laser_db[self.laser]["f_ref"]/1e12)
+        f_ref = self._gui.laser_db[self.laser]["f_ref"]/1e12
+        self.f_ref.blockSignals(True)
+        self.f_ref.setValue(f_ref)
+        if self.connected:
+            self.f_ref.blockSignals(False)
         self.update_freq()
 
     def update_osa_trace(self):
