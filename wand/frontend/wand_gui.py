@@ -190,8 +190,7 @@ class WandGUI():
                 self.subscribers[server][db] = subscriber, fut
 
             subscriber.disconnect_cb = functools.partial(
-                asyncio.ensure_future,
-                subscriber_reconnect(self, server, db))
+                make_fut, self, server, db)
 
             while not self.win.exit_request.is_set():
                 try:
