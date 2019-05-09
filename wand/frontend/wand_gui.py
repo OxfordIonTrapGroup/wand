@@ -115,19 +115,21 @@ class WandGUI():
         do here is call the relevant GUI update function.
         """
         if mod["action"] == "init":
+            self.subscribers[server][db]["connected"] = True
+
+        # check we're fully connected to the server before processing updates
+        if (
+          not self.subscribers[server]["laser_db"]["connected"] or
+          not self.subscribers[server]["freq_db"]["connected"] or
+          not self.subscribers[server]["osa_db"]["connected"]
+        ):
+            return
+
+        if mod["action"] == "init":
             # called when we first connect to a Notifier
             # we only activate the GUI chanel for a laser once we have initial
             # data from all three Notifier interfaces (laser, freq, osa)
             displays = self.laser_displays
-            self.subscribers[server][db]["connected"] = True
-
-            # check we're fully connected to the server
-            if (
-              not self.subscribers[server]["laser_db"]["connected"] or
-              not self.subscribers[server]["freq_db"]["connected"] or
-              not self.subscribers[server]["osa_db"]["connected"]
-            ):
-                return
 
             for laser in mod["struct"].keys():
                 if laser not in self.laser_displays.keys():

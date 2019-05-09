@@ -350,14 +350,7 @@ class LaserDisplay:
 
         if status == WLMMeasurementStatus.OKAY:
             colour = self.colour
-
-            # todo: remove me one this error goes away
-            try:
-                f_ref = self._gui.laser_db[self.laser]["f_ref"]
-            except Exception as e:
-                print(e)
-                print(self._gui.laser_db)
-                print(self.laser)
+            f_ref = self._gui.laser_db[self.laser]["f_ref"]
 
             # this happens if the server hasn't taken a measurement yet
             if freq is None:
