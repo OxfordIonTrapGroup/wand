@@ -58,13 +58,14 @@ def main():
                 client = RPCClient(server["host"], server["control"])
                 lasers = client.get_laser_db()
                 for laser in lasers:
-                    status, freq = client.get_freq(laser,
-                                                   age=args.poll_time,
-                                                   priority=3,
-                                                   get_osa_trace=False,
-                                                   blocking=True,
-                                                   mute=False,
-                                                   offset_mode=False)
+                    meas = client.get_freq(laser,
+                                           age=args.poll_time,
+                                           priority=3,
+                                           get_osa_trace=False,
+                                           blocking=True,
+                                           mute=False,
+                                           offset_mode=False)
+                    status, freq, _ = meas
 
                     if status != WLMMeasurementStatus.OKAY:
                         logger.info("{}: measurement error")

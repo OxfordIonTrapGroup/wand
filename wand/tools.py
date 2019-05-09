@@ -4,9 +4,7 @@ import datetime
 import asyncio
 import shutil
 import logging
-from socket import timeout as TimeoutError
 
-from artiq.protocols.pc_rpc import Client as RPCClient
 from artiq.protocols import pyon
 import wand
 
@@ -18,6 +16,10 @@ class WLMMeasurementStatus(IntEnum):
     UNDER_EXPOSED = 1,
     OVER_EXPOSED = 2,
     ERROR = 3
+
+
+class LaserOwnedException(Exception):
+    pass
 
 
 def get_config_path(args, name_suffix=""):
@@ -70,43 +72,3 @@ async def regular_config_backup(args, name_suffix=""):
         await asyncio.sleep(
             (next_backup - datetime.datetime.now()).total_seconds())
         backup_config(args)
-
-
-def get_laser_db(server_db):
-    """ Queries all servers in server_db for their laser_db, returning the
-    result as a single, unified laser_db. Additionally, returns laser_sup_db,
-    containing useful meta-data, such as mappings between lasers and the
-    server they reside on.
-
-    :param server_db: dictionary of servers
-    :returns: (laser_db, laser_sup_db)
-    """
-    laser_db = {}
-    laser_sup_db = {}
-
-    for server_name, server_cfg in server_db.items():
-        try:
-            client = RPCClient(server_cfg["host"],
-                               server_cfg["control"],
-                               timeout=1)
-            server_lasers = client.get_laser_db()
-            exp_min = client.get_min_exposure()
-            exp_max = client.get_max_exposure()
-            client.close_rpc()
-        except TimeoutError:
-            logger.error("Unable to connect to server '{}'".format(
-                server_name))
-            continue
-
-        for laser_name, laser in server_lasers.items():
-            if laser_name in laser_db.keys():
-                raise ValueError("Duplicate definitions of laser '{}'"
-                                 " found".format(laser_name))
-            laser_sup_db.update({laser_name: {
-                "server": server_name,
-                "exp_min": exp_min,
-                "exp_max": exp_max
-                }})
-        laser_db.update(server_lasers)
-
-    return laser_db, laser_sup_db
