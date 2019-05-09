@@ -318,16 +318,17 @@ class WandServer:
 
             # auto-exposure
             if laser_conf["auto_exposure"]:
+                new_exp = laser_conf["exposure"]
                 for ccd, peak in enumerate(peaks):
                     if not (0.4 < peak < 0.6):
                         exp = laser_conf["exposure"][ccd]
-                        new_exp = exp + 1 if peak < 0.4 else exp - 1
-                        new_exp = min(new_exp, self.exp_max)
-                        new_exp = max(new_exp, self.exp_min)
+                        new_exp[ccd] = exp + 1 if peak < 0.4 else exp - 1
+                        new_exp[ccd] = min(new_exp[ccd], self.exp_max)
+                        new_exp[ccd] = max(new_exp[ccd], self.exp_min)
 
-                        if new_exp != exp:
-                            self.laser_db[laser]["exposure"][ccd] = new_exp
-                            self.save_config_file()
+                if new_exp != exp:
+                    self.laser_db[laser]["exposure"] = new_exp
+                    self.save_config_file()
 
             # check which other measurements wanted this data
             for task in self.queue:
