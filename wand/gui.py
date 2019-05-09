@@ -136,7 +136,6 @@ class LaserDisplay:
         """ Enable/disable controls on the gui dependent on whether or not
         the server is connected.
         """
-        self.connected = connected
         if not connected:
             self.ref_editable.blockSignals(True)
             self.fast_mode.blockSignals(True)
@@ -195,6 +194,8 @@ class LaserDisplay:
             for exp in self.exposure:
                 exp.setEnabled(True)
                 exp.blockSignals(False)
+
+        self.connected = connected
 
     async def loop(self):
         """ Update task for this laser display.
