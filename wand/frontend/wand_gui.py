@@ -179,10 +179,15 @@ class WandGUI():
                     display.wake_loop.set()
 
             server_cfg = self.config["servers"][server]
-            subscriber = self.subscribers[server][db]
+            subscriber, _ = self.subscribers[server][db]
 
             if self.win.exit_request.is_set():
                 return
+
+            def make_fut(self, server, db):
+                subscriber, _ = self.subscribers[server][db]
+                fut = asyncio.esure_future(make_fut, self, server, db)
+                self.subscribers[server][db] = subscriber, fut
 
             subscriber.disconnect_cb = functools.partial(
                 asyncio.ensure_future,
@@ -209,30 +214,27 @@ class WandGUI():
                 "laser_db",
                 functools.partial(init_cb, self.laser_db),
                 functools.partial(self.notifier_cb, "laser_db", server))
-            self.subscribers[server]["laser_db"] = subscriber
-            asyncio.ensure_future(subscriber_reconnect(self,
-                                                       server,
-                                                       "laser_db"))
+            fut = asyncio.ensure_future(
+                subscriber_reconnect(self, server, "laser_db"))
+            self.subscribers[server]["laser_db"] = subscriber, fut
 
             # ask the servers to keep us updated with the latest frequency data
             subscriber = Subscriber(
                 "freq_db",
                 functools.partial(init_cb, self.freq_db),
                 functools.partial(self.notifier_cb, "freq_db", server))
-            self.subscribers[server]["freq_db"] = subscriber
-            asyncio.ensure_future(subscriber_reconnect(self,
-                                                       server,
-                                                       "freq_db"))
+            fut = asyncio.ensure_future(
+                subscriber_reconnect(self, server, "freq_db"))
+            self.subscribers[server]["freq_db"] = subscriber, fut
 
             # ask the servers to keep us updated with the latest osa traces
             subscriber = Subscriber(
                 "osa_db",
                 functools.partial(init_cb, self.osa_db),
                 functools.partial(self.notifier_cb, "osa_db", server))
-            self.subscribers[server]["osa_db"] = subscriber
-            asyncio.ensure_future(subscriber_reconnect(self,
-                                                       server,
-                                                       "osa_db"))
+            fut = asyncio.ensure_future(
+                subscriber_reconnect(self, server, "osa_db"))
+            self.subscribers[server]["osa_db"] = subscriber, fut
 
         atexit_register_coroutine(self.shutdown)
 
@@ -242,12 +244,15 @@ class WandGUI():
 
     async def shutdown(self):
         self.win.exit_request.set()
-        for _, subs in self.subscribers.items():
-            try:
-                await subs.close()
-                await subs.disconnect_cb()
-            except Exception:
-                pass
+
+        for _, server in self.subscribers.items():
+            for _, (subs, fut) in server.items():
+                try:
+                    await subs.close()
+                except Exception:
+                    pass
+                if fut is not None and not fut.done():
+                    fut.cancel()
         for _, display in self.laser_displays.items():
             display.fut.cancel()
 
