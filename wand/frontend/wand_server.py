@@ -290,7 +290,8 @@ class WandServer:
             freq_measurement = self.loop.run_in_executor(
                 self.executor,
                 self.take_freq_measurement,
-                laser)
+                laser,
+                laser_conf["f_ref"])
             osa_measurement = self.loop.run_in_executor(
                 self.executor,
                 self.take_osa_measurement,
@@ -311,7 +312,7 @@ class WandServer:
             if laser_conf["fast_mode"]:
                 t_en = laser_conf["fast_mode_set_at"]
                 if time.time() > (t_en + self.args.fast_mode_timeout):
-                    laser_conf["fast_mode"] = False
+                    self.laser_db[laser]["fast_mode"] = False
                     self.save_config_file()
                     logger.info("{} fast mode timeout".format(laser))
 
@@ -320,12 +321,12 @@ class WandServer:
                 for ccd, peak in enumerate(peaks):
                     if not (0.4 < peak < 0.6):
                         exp = laser_conf["exposure"][ccd]
-                        new_exp = exp + 1 if peak < 0.3 else exp - 1
+                        new_exp = exp + 1 if peak < 0.4 else exp - 1
                         new_exp = min(new_exp, self.exp_max)
                         new_exp = max(new_exp, self.exp_min)
 
                         if new_exp != exp:
-                            laser_conf["exposure"][ccd] = new_exp
+                            self.laser_db[laser]["exposure"][ccd] = new_exp
                             self.save_config_file()
 
             # check which other measurements wanted this data
@@ -336,7 +337,7 @@ class WandServer:
                     self.queue.remove(task)
                     logger.info("task {} complete".format(task["id"]))
 
-    def take_freq_measurement(self, laser):
+    def take_freq_measurement(self, laser, f0):
         """ Preform a single frequency measurement """
         logger.info("Taking new frequency measurement for {}".format(laser))
 
@@ -349,8 +350,7 @@ class WandServer:
 
         # make simulation data more interesting!
         if self.args.simulation:
-            freq["freq"] = self.laser_db.raw_view[laser]["f_ref"] \
-                           + np.random.normal(loc=0, scale=10e6)
+            freq["freq"] = f0 + np.random.normal(loc=0, scale=10e6)
 
         peaks = [self.wlm.get_fringe_peak(ccd) for ccd in range(self.num_ccds)]
 
