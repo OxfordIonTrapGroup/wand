@@ -150,7 +150,8 @@ class WandGUI():
             elif db == "laser_db":
                 if mod["key"] == "f_ref":
                     self.laser_displays[laser].update_reference()
-                elif len(mod["path"]) > 1 and mod["path"][1] == "exposure":
+                elif (mod["key"] == "exposure" or
+                      (len(mod["path"]) > 1 and mod["path"][1] == "exposure")):
                     self.laser_displays[laser].update_exposure()
                 elif mod["key"] == "fast_mode":
                     self.laser_displays[laser].update_fast_mode()
@@ -158,6 +159,8 @@ class WandGUI():
                     self.laser_displays[laser].update_auto_exposure()
                 elif mod["key"] in ["locked", "lock_owner"]:
                     self.laser_displays[laser].update_lock_status()
+            else:
+                raise ValueError("Unexpected notifier interface")
         else:
             raise ValueError("Unexpected 'notifier' modification: {}"
                              .format(mod))
