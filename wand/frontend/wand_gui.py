@@ -120,16 +120,17 @@ class WandGUI():
             # data from all three Notifier interfaces (laser, freq, osa)
             displays = self.laser_displays
             self.subscribers[server][db]["connected"] = True
+
+            # check we're fully connected to the server
+            if (
+              not self.subscribers[server]["laser_db"]["connected"] or
+              not self.subscribers[server]["freq_db"]["connected"] or
+              not self.subscribers[server]["osa_db"]["connected"]
+            ):
+                return
+
             for laser in mod["struct"].keys():
                 if laser not in self.laser_displays.keys():
-                    continue
-
-                # check we're connected to the server
-                if (
-                  not self.subscribers[server]["laser_db"]["connected"] or
-                  not self.subscribers[server]["freq_db"]["connected"] or
-                  not self.subscribers[server]["osa_db"]["connected"]
-                ):
                     continue
 
                 if displays[laser].server not in [server, ""]:
