@@ -59,8 +59,8 @@ class LaserDisplay:
             self.exposure[idx].setSuffix(" ms")
             self.exposure[idx].setRange(0, 0)
 
-        self.lock_status = QtGui.QLineEdit()
-        self.lock_status.setReadOnly(True)
+        self.laser_status = QtGui.QLineEdit()
+        self.laser_status.setReadOnly(True)
 
         self.f_ref = QtGui.QDoubleSpinBox()
         self.f_ref.setSuffix(" THz")
@@ -94,14 +94,14 @@ class LaserDisplay:
         self.dock.addWidget(self.auto_exposure, row=2, col=1)
 
         self.dock.addWidget(QtGui.QLabel("Reference"), row=1, col=2)
-        self.dock.addWidget(QtGui.QLabel("Exposure 0"), row=1, col=3)
-        self.dock.addWidget(QtGui.QLabel("Exposure 1"), row=1, col=4)
-        self.dock.addWidget(QtGui.QLabel("Lock status"), row=1, col=5)
+        self.dock.addWidget(QtGui.QLabel("Exp 0"), row=1, col=3)
+        self.dock.addWidget(QtGui.QLabel("Exp 1"), row=1, col=4)
+        self.dock.addWidget(QtGui.QLabel("Status"), row=1, col=5)
 
         self.dock.addWidget(self.f_ref, row=2, col=2)
         self.dock.addWidget(self.exposure[0], row=2, col=3)
         self.dock.addWidget(self.exposure[1], row=2, col=4)
-        self.dock.addWidget(self.lock_status, row=2, col=5)
+        self.dock.addWidget(self.laser_status, row=2, col=5)
 
         # Sort the layout to make the most of available space
         self.layout.ci.setSpacing(4)
@@ -109,7 +109,9 @@ class LaserDisplay:
         self.dock.layout.setContentsMargins(0, 0, 0, 4)
         for i in [0, 6]:
             self.dock.layout.setColumnMinimumWidth(i, 4)
-        for i in [2, 3, 4, 5]:
+        for i in [2, 5]:
+            self.dock.layout.setColumnStretch(i, 2)
+        for i in [1, 3, 4]:
             self.dock.layout.setColumnStretch(i, 1)
 
         self.cb_queue = []
@@ -151,8 +153,8 @@ class LaserDisplay:
                 exp.blockSignals(True)
                 exp.setEnabled(False)
 
-            self.lock_status.setText("no connection")
-            self.lock_status.setStyleSheet("color: red")
+            self.laser_status.setText("no connection")
+            self.laser_status.setStyleSheet("color: red")
         else:
             if self._gui.laser_db[self.laser]["osa"] == "blue":
                 self.colour = "5555ff"
@@ -177,7 +179,7 @@ class LaserDisplay:
             self.update_auto_exposure()
             self.update_reference()
             self.update_exposure()
-            self.update_lock_status()
+            self.update_laser_status()
             self.update_osa_trace()
 
             # re-enable GUI controls
@@ -379,16 +381,16 @@ class LaserDisplay:
 
         self.wake_loop.set()  # recalculate when next measurement due
 
-    def update_lock_status(self):
+    def update_laser_status(self):
         locked = self._gui.laser_db[self.laser]["locked"]
         owner = self._gui.laser_db[self.laser]["lock_owner"]
 
         if not locked:
-            self.lock_status.setText("unlocked")
-            self.lock_status.setStyleSheet("color: grey")
+            self.laser_status.setText("unlocked")
+            self.laser_status.setStyleSheet("color: grey")
         elif owner:
-            self.lock_status.setText("locked by: {}".format(owner))
-            self.lock_status.setStyleSheet("color: red")
+            self.laser_status.setText("locked: {}".format(owner))
+            self.laser_status.setStyleSheet("color: red")
         else:
-            self.lock_status.setText("locked")
-            self.lock_status.setStyleSheet("color: orange")
+            self.laser_status.setText("locked")
+            self.laser_status.setStyleSheet("color: orange")
