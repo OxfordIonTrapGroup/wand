@@ -239,9 +239,9 @@ class WLM:
                 freq = self.lib.GetFrequencyNum(self.active_switch_ch, 0)
                 break
             except WLMException:
-                pass
+                logger.error("WLM Timeout number {}".format(attempt))
         else:
-            raise WLMException("Too many time outs during frequency reading")
+            return WLMMeasurementStatus.ERROR, 0
 
         if freq > 0:
             return WLMMeasurementStatus.OKAY, freq*1e12
