@@ -8,7 +8,7 @@ A WAnD server (an instance of `wand_server`) controls: a wavelength meter; a fib
 
 WAnD clients, such as the GUI or an ARTIQ experiment, can connect to multiple servers (and, each server can support connections from multiple clients).
 
-![WAnD servers and clients](docs/servers_and_clients.png)
+![WAnD servers and clients](docs/servers_and_clients.svg)
 
 To allow multiple clients to simultaneously request frequency data, potentially from different lasers (using a fibre switch) the server works on a priority queue basis. Frequency requests are queued and dealt with in order of the requested priority and the request time.
 
