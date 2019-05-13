@@ -155,6 +155,10 @@ class LaserDisplay:
 
             self.laser_status.setText("no connection")
             self.laser_status.setStyleSheet("color: red")
+
+            self.server = ""
+            self.wake_loop.set()
+
         else:
             if self._gui.laser_db[self.laser]["osa"] == "blue":
                 self.colour = "5555ff"
@@ -168,8 +172,13 @@ class LaserDisplay:
                               size="32pt")
 
             for ccd, exposure in enumerate(self.exposure):
-                exp_min = await self.client.get_min_exposure()
-                exp_max = await self.client.get_max_exposure()
+                try:
+                    exp_min = await self.client.get_min_exposure()
+                    exp_max = await self.client.get_max_exposure()
+                except ConnectionError:
+                    self.setConnected(False)
+                    return
+
                 exposure.setRange(exp_min, exp_max)
                 exposure.setValue(
                     self._gui.laser_db[self.laser]["exposure"][ccd])
@@ -266,13 +275,14 @@ class LaserDisplay:
                     data_expiry = data_timestamp + poll_time
                     next_measurement_in = data_expiry - time.time()
                     if next_measurement_in <= 0:
-                        await self.client.get_freq(laser=laser,
-                                                   age=poll_time,
-                                                   priority=priority,
-                                                   get_osa_trace=True,
-                                                   blocking=True,
-                                                   mute=True)
-                        next_measurement_in = poll_time
+                        try:
+                            await self.client.get_freq(
+                                laser=laser, age=poll_time, priority=priority,
+                                get_osa_trace=True, blocking=True, mute=True)
+                            next_measurement_in = poll_time
+                        except ConnectionError:
+                            self.server = ""
+                            continue
 
                 except Exception:
                     await asyncio.sleep(0.1)
@@ -285,11 +295,18 @@ class LaserDisplay:
                     pass
 
     async def fast_mode_cb(self):
-        await self.client.set_fast_mode(self.laser, self.fast_mode.isChecked())
+        try:
+            await self.client.set_fast_mode(self.laser,
+                                            self.fast_mode.isChecked())
+        except ConnectionError:
+            self.setConnected(False)
 
     async def auto_expose_cb(self):
-        await self.client.set_auto_exposure(self.laser,
-                                            self.auto_exposure.isChecked())
+        try:
+            await self.client.set_auto_exposure(self.laser,
+                                                self.auto_exposure.isChecked())
+        except ConnectionError:
+            self.setConnected(False)
 
     def ref_editable_cb(self):
         """ Enable/disable editing of the frequency reference """
@@ -299,13 +316,19 @@ class LaserDisplay:
             self.f_ref.setEnabled(True)
 
     async def f_ref_cb(self):
-        await self.client.set_reference_freq(self.laser,
-                                             self.f_ref.value()*1e12)
+        try:
+            await self.client.set_reference_freq(self.laser,
+                                                 self.f_ref.value()*1e12)
+        except ConnectionError:
+            self.setConnected(False)
 
     async def exposure_cb(self, ccd):
-        await self.client.set_exposure(self.laser,
-                                       self.exposure[ccd].value(),
-                                       ccd)
+        try:
+            await self.client.set_exposure(self.laser,
+                                           self.exposure[ccd].value(),
+                                           ccd)
+        except ConnectionError:
+            self.setConnected(False)
 
     def update_fast_mode(self):
         server_fast_mode = self._gui.laser_db[self.laser]["fast_mode"]
