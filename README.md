@@ -34,3 +34,8 @@ If you get `connection refused` errors when a client tries to connect to the ser
 ## Starting a GUI client
 
 To start a GUI client, run `wand_gui -n <name>` where `<name>` is the name of the client. The client configuration file specifies the layout of the GUI and which servers to connect to.
+
+## Notes
+
+- The wavemeter peak height on CCD 2 (the coarse grating) is affected by the exposure time on CCD 1 (the fine grating)
+- If you see the wavemeter reading jumping between underexposed and overexposed then your laser power is probably too high. What's happening is that turning the CCD 1 exposure time up enough to get a good reading is causing the coarse CCD 2 to overexpose. NB the peak heights are strongly non-linear in the exposure times, so it can be non-obvious when this is happening...
