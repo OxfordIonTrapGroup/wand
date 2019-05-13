@@ -66,9 +66,9 @@ async def regular_config_backup(args, name_suffix=""):
     4 am cf backup_config
     """
     while True:
-        next_backup = datetime.datetime.now()
+        next_backup = datetime.datetime.now() + datetime.timedelta(days=1)
         next_backup = next_backup.replace(
-            day=next_backup.day+1, hour=4, minute=0, second=0, microsecond=0)
+            day=next_backup.day, hour=4, minute=0, second=0, microsecond=0)
         await asyncio.sleep(
             (next_backup - datetime.datetime.now()).total_seconds())
         backup_config(args)
