@@ -323,8 +323,8 @@ class WandServer:
                     if not (0.4 < peak < 0.6):
                         exp = laser_conf["exposure"][ccd]
                         new_exp[ccd] = exp + 1 if peak < 0.4 else exp - 1
-                        new_exp[ccd] = min(new_exp[ccd], self.exp_max)
-                        new_exp[ccd] = max(new_exp[ccd], self.exp_min)
+                        new_exp[ccd] = min(new_exp[ccd], self.exp_max[ccd])
+                        new_exp[ccd] = max(new_exp[ccd], self.exp_min[ccd])
 
                 if new_exp != exp:
                     self.laser_db[laser]["exposure"] = new_exp

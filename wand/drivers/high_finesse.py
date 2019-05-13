@@ -24,8 +24,8 @@ class WLM:
 
         self.simulation = simulation
         if self.simulation:
-            self._exp_min = 2
-            self._exp_max = 999
+            self._exp_min = [2]*2
+            self._exp_max = [999]*2
             self._exposure = [self._exp_min] * 2
             return
 
@@ -74,12 +74,19 @@ class WLM:
         if lib.SetSwitcherMode(0) < 0:  # disable automatic channel switching
             logger.warning("Unable to disable automatic WLM switching")
 
-        self._exp_min = lib.GetExposureRange(wlm.cExpoMin)
-        self._exp_max = lib.GetExposureRange(wlm.cExpoMax)
-        self._exposure = [self._exp_min] * self._num_ccds
+        # fixme: hard-code that we have two ccds for now
+        # fix me: setting exp 2 to exp_min gives errors. Works fine via the GUI
+        self._exp_min = [lib.GetExposureRange(wlm.cExpoMin),
+                         lib.GetExposureRange(wlm.cExpo2Min)+2
+                         ]
+        self._exp_max = [lib.GetExposureRange(wlm.cExpoMax),
+                         lib.GetExposureRange(wlm.cExpo2Max)
+                         ]
+        self._exposure = self._exp_min.copy()
 
-        if self._exp_min == 0 or self._exp_max == 0:
-            raise WLMException("Error finding WLM exposure range")
+        # FIXME: doesn't work since exp_min[1] is 0!
+        # if 0 in self._exp_min or 0 in self._exp_max:
+        #     raise WLMException("Error finding WLM exposure range")
 
         for channel in range(8):  # manual exposure
             if lib.SetExposureModeNum(channel + 1, 0) < 0:
@@ -151,8 +158,8 @@ class WLM:
         exposure = self._exposure if exposure is None else exposure
         for ccd, exp in enumerate(exposure):
             if 0 > self.lib.SetExposureNum(self.active_switch_ch, ccd+1, exp):
-                raise WLMException(
-                    "Unable to set WLM exposure time for ccd".format(ccd))
+                raise WLMException("Unable to set WLM exposure time for ccd {}"
+                                   " to {} ms".format(ccd, exp))
 
     def _get_fresh_data(self):
         """ Gets a "fresh" wavelength measurement, guaranteed to occur after
@@ -168,7 +175,7 @@ class WLM:
         for pipeline_stage in range(3):
             self._trigger_single_measurement()
             if pipeline_stage == 0:
-                self._update_exposure([self._exp_min]*self._num_ccds)
+                self._update_exposure(self._exp_min)
 
     def _trigger_single_measurement(self):
         """
@@ -178,7 +185,6 @@ class WLM:
 
         if self.lib.TriggerMeasurement(wlm.cCtrlMeasurementTriggerSuccess):
             raise WLMException("Error triggering WLM measurement cycle")
-
         event = c_long()
         p_int = c_long()
         p_double = c_double()
@@ -238,8 +244,9 @@ class WLM:
                 self._get_fresh_data()
                 freq = self.lib.GetFrequencyNum(self.active_switch_ch, 0)
                 break
-            except WLMException:
-                logger.error("WLM Timeout number {}".format(attempt))
+            except WLMException as e:
+                logger.error("error during frequency read attempt number {}: "
+                             "{}".format(attempt, e))
         else:
             return WLMMeasurementStatus.ERROR, 0
 
@@ -253,11 +260,11 @@ class WLM:
             raise WLMException(freq)
 
     def get_exposure_min(self):
-        """ Returns the minimum exposure time in ms """
+        """ Returns the minimum exposure times in ms """
         return self._exp_min
 
     def get_exposure_max(self):
-        """ Returns the meaximum exposure time in ms """
+        """ Returns the meaximum exposure times in ms """
         return self._exp_max
 
     def get_num_ccds(self):
@@ -272,8 +279,9 @@ class WLM:
           range(self._num_ccds)
         """
         exposure = int(exposure)
-        if exposure < self._exp_min or exposure > self._exp_max:
-            raise WLMException("Invalid WLM exposure {}".format(exposure))
+        if exposure < self._exp_min[ccd] or exposure > self._exp_max[ccd]:
+            raise WLMException("Invalid WLM exposure for ccd {}: {} ms"
+                               .format(ccd, exposure))
         if ccd not in range(self._num_ccds):
             raise WLMException("Invalid ccd: {}".format(ccd))
         self._exposure[ccd] = exposure

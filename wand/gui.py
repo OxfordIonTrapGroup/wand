@@ -171,15 +171,15 @@ class LaserDisplay:
                               color=self.colour,
                               size="32pt")
 
-            for ccd, exposure in enumerate(self.exposure):
-                try:
-                    exp_min = await self.client.get_min_exposure()
-                    exp_max = await self.client.get_max_exposure()
-                except ConnectionError:
-                    self.setConnected(False)
-                    return
+            try:
+                exp_min = await self.client.get_min_exposures()
+                exp_max = await self.client.get_max_exposures()
+            except ConnectionError:
+                self.setConnected(False)
+                return
 
-                exposure.setRange(exp_min, exp_max)
+            for ccd, exposure in enumerate(self.exposure):
+                exposure.setRange(exp_min[ccd], exp_max[ccd])
                 exposure.setValue(
                     self._gui.laser_db[self.laser]["exposure"][ccd])
 

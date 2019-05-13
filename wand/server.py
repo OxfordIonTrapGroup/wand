@@ -159,8 +159,8 @@ class ControlInterface:
         exposure = _validate_int(exposure, "exposure")
         ccd = _validate_int(ccd, "ccd")
 
-        if exposure < self._server.exp_min or \
-           exposure > self._server.exp_max:
+        if exposure < self._server.exp_min[ccd] or \
+           exposure > self._server.exp_max[ccd]:
             raise ValueError("invalid exposure")
         if ccd not in range(self._server.num_ccds):
             raise ValueError("invalid WLM CCD number")
@@ -175,15 +175,15 @@ class ControlInterface:
         self._server.laser_db[laser]["auto_exposure"] = enabled
         self._server.save_config_file()
 
-    def get_min_exposure(self):
+    def get_min_exposures(self):
         """
-        Returns the WaveLength Meter (WLM) minimum exposure time (ms)
+        Returns the WaveLength Meter (WLM) minimum exposure times (ms)
         """
         return self._server.exp_min
 
-    def get_max_exposure(self):
+    def get_max_exposures(self):
         """
-        Returns the WaveLength Meter (WLM) maximum exposure time (ms)
+        Returns the WaveLength Meter (WLM) maximum exposure times (ms)
         """
         return self._server.exp_max
 
