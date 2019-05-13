@@ -286,11 +286,12 @@ class WLM:
         if self.simulation:
             return 0.5
 
-        peak = self.lib.GetAmplitudeNum(1, [wlm.cMax1, wlm.cMax2][ccd], 0)
+        peak = self.lib.GetAmplitudeNum(self.active_switch_ch,
+                                        [wlm.cMax1, wlm.cMax2][ccd], 0)
         if peak < 0:
             raise WLMException(
                 "Error reading WLM fring height: {}". format(peak))
-        return peak/4000.  # to do, figure out what the scale factor should be!
+        return peak/3500.  # to do, figure out what the scale factor should be!
 
     def get_switch(self):
         """ :returns: an interface to the WLM integrated switch """
