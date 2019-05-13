@@ -228,6 +228,7 @@ class LaserDisplay:
 
             if not self.server:
                 await self.setConnected(False)
+                self.wake_loop.clear()
                 await self.wake_loop.wait()
                 continue
 
