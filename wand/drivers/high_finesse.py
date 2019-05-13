@@ -77,16 +77,20 @@ class WLM:
         # fixme: hard-code that we have two ccds for now
         # fix me: setting exp 2 to exp_min gives errors. Works fine via the GUI
         self._exp_min = [lib.GetExposureRange(wlm.cExpoMin),
-                         lib.GetExposureRange(wlm.cExpo2Min)+2
+                         lib.GetExposureRange(wlm.cExpo2Min)
                          ]
         self._exp_max = [lib.GetExposureRange(wlm.cExpoMax),
                          lib.GetExposureRange(wlm.cExpo2Max)
                          ]
+
+        # fixme: hack to work around bug in WLM software
+        if self._exp_min[1] == 0:
+            self._exp_min[1] = 2
+
         self._exposure = self._exp_min.copy()
 
-        # FIXME: doesn't work since exp_min[1] is 0!
-        # if 0 in self._exp_min or 0 in self._exp_max:
-        #     raise WLMException("Error finding WLM exposure range")
+        if 0 in self._exp_min or 0 in self._exp_max:
+            raise WLMException("Error finding WLM exposure range")
 
         for channel in range(8):  # manual exposure
             if lib.SetExposureModeNum(channel + 1, 0) < 0:
