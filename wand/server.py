@@ -48,8 +48,9 @@ class ControlInterface:
 
         current_owner = self._server.laser_db.raw_view[laser]["lock_owner"]
         if current_owner and (current_owner != name):
-            raise LaserOwnedException("Laser currently owned by {}!"
-                                      .format(current_owner))
+            raise LaserOwnedException("Laser currently owned by '{}' "
+                                      "(you are '{}')!"
+                                      .format(current_owner, name))
 
         if not self._server.laser_db.raw_view[laser]["host"]:
             raise ValueError("No controller found for '{}'".format(laser))
