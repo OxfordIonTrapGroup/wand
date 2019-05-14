@@ -88,6 +88,8 @@ class WLM:
             self._exp_min[1] = 2
 
         self._exposure = self._exp_min.copy()
+        self._set_exp = [[lib.GetExposureNum(ch+1, 1),
+                          lib.GetExposureNum(ch+1, 2)] for ch in range(8)]
 
         if 0 in self._exp_min or 0 in self._exp_max:
             raise WLMException("Error finding WLM exposure range")
@@ -159,11 +161,24 @@ class WLM:
         :param exposure: if None then we use self._exposure, otherwise this
         should be a list of exposure times to set.
         """
+        max_ccd_changed = -1
         exposure = self._exposure if exposure is None else exposure
         for ccd, exp in enumerate(exposure):
+            if exp == self._set_exp[self.active_switch_ch-1][ccd]:
+                continue
+            self._set_exp[self.active_switch_ch-1][ccd] = exp
+
             if 0 > self.lib.SetExposureNum(self.active_switch_ch, ccd+1, exp):
                 raise WLMException("Unable to set WLM exposure time for ccd {}"
                                    " to {} ms".format(ccd, exp))
+            max_ccd_changed = ccd
+
+        if max_ccd_changed == -1:
+            return
+
+        event = vars(wlm)["cmiExposureValue{}{}".format(max_ccd_changed+1,
+                                                        self.active_switch_ch)]
+        self._wait_for_event([event], exposure[max_ccd_changed])
 
     def _get_fresh_data(self):
         """ Gets a "fresh" wavelength measurement, guaranteed to occur after
@@ -178,7 +193,7 @@ class WLM:
         self._update_exposure()  # synchronise WLM with self._exposure
         for pipeline_stage in range(3):
             self._trigger_single_measurement()
-            if pipeline_stage == 0:
+            if pipeline_stage == 1:
                 self._update_exposure(self._exp_min)
 
     def _trigger_single_measurement(self):
@@ -189,12 +204,18 @@ class WLM:
 
         if self.lib.TriggerMeasurement(wlm.cCtrlMeasurementTriggerSuccess):
             raise WLMException("Error triggering WLM measurement cycle")
+
+        self._wait_for_event([wlm.cmiTriggerState],
+                             wlm.cCtrlMeasurementTriggerSuccess)
+
+    def _wait_for_event(self, event_values, int_value):
+        """ Wait for a WLM event to occur """
         event = c_long()
         p_int = c_long()
         p_double = c_double()
         ret = 0
 
-        logger.debug("Waiting for measurement to complete...")
+        logger.debug("Waiting for WLM event...")
 
         t0 = time.time()
         while True:
@@ -202,7 +223,7 @@ class WLM:
                                            byref(p_int),
                                            byref(p_double))
             if ret == -1:
-                raise WLMException("Timeout while waiting for data")
+                raise WLMException("Timeout while waiting for event")
             elif ret == 1:
                 ret_str = "more in pipeline"
             elif ret == 2:
@@ -223,8 +244,7 @@ class WLM:
             #     p_int = cCtrlMeasurementContinue
             #   - and once at the end of the measurement, with
             #     p_int = cCtrlMeasurementTriggerSuccess
-            if event.value == wlm.cmiTriggerState \
-               and p_int.value == wlm.cCtrlMeasurementTriggerSuccess:
+            if event.value in event_values and p_int.value == int_value:
                 break
         logger.debug("...done")
 
@@ -234,7 +254,7 @@ class WLM:
         The frequency measurement is guaranteed to occur after this method is
         called. See :meth _get_fresh_data: for details.
 
-        :returns: the tupel (status, frequency) where status is a
+        :returns: the tuple (status, frequency) where status is a
           WLMMeasurementStatus and frequency is in Hz.
         """
         if self.simulation:
@@ -243,7 +263,7 @@ class WLM:
         # this should never time out, but it does...
         # I've had a long discussion with the HF engineers about why this
         # occurs on some units, without any real success.
-        for attempt in range(10):
+        for attempt in range(3):
             try:
                 self._get_fresh_data()
                 freq = self.lib.GetFrequencyNum(self.active_switch_ch, 0)
@@ -268,7 +288,7 @@ class WLM:
         return self._exp_min
 
     def get_exposure_max(self):
-        """ Returns the meaximum exposure times in ms """
+        """ Returns the maximum exposure times in ms """
         return self._exp_max
 
     def get_num_ccds(self):
@@ -302,7 +322,7 @@ class WLM:
                                         [wlm.cMax1, wlm.cMax2][ccd], 0)
         if peak < 0:
             raise WLMException(
-                "Error reading WLM fring height: {}". format(peak))
+                "Error reading WLM fringe height: {}". format(peak))
         return peak/3500.  # to do, figure out what the scale factor should be!
 
     def get_switch(self):
@@ -335,6 +355,10 @@ class WLM:
                 raise WLMException(
                     "Unable to set WLM switcher channel to: {}".format(channel,
                                                                        ret))
+            try:
+                self._wlm._wait_for_event([wlm.cmiSwitcherChannel], channel)
+            except WLMException as e:
+                logger.error("Error changing switcher channel: {}".format(e))
 
         def get_active_channel(self):
             """ Returns the active channel number
