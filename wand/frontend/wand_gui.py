@@ -167,7 +167,7 @@ class WandGUI():
                 elif mod["key"] == "auto_exposure":
                     self.laser_displays[laser].update_auto_exposure()
                 elif mod["key"] in ["locked", "lock_owner"]:
-                    self.laser_displays[laser].update_lock_status()
+                    self.laser_displays[laser].update_laser_status()
             else:
                 raise ValueError("Unexpected notifier interface")
         else:
