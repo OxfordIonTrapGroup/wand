@@ -20,7 +20,7 @@ From inside Oxford, this is installed as part of the `artiq_env` Conda package.
 
 From outside Oxford, use Pip to install into an [ARTIQ](https://github.com/m-labs/artiq) Conda environment. You may also need to Pip install a couple of extra packages like `pydaqmx`.
 
-## Starting a server
+## WAnD servers
 
 To start a server run `wand_server -n <name>` where `<name>` is the name of the server.
 
@@ -30,9 +30,9 @@ The server can be run in "simulation" mode without hardware access by using the 
 
 If you get `connection refused` errors when a client tries to connect to the server remember to make sure to add a suitable bind argument (e.g. `--bind=*`).
 
-The default server port is `3251`. To control the server, or list the methods provided by the server, user `artiq_rpctool`.
+The default server port is `3251`. To control the server (e.g. to lock a laser or configure a lock gain), or list the methods provided by the server, use `artiq_rpctool`.
 
-## Starting a GUI client
+## WAnD GUI
 
 To start a GUI client, run `wand_gui -n <name>` where `<name>` is the name of the client. The client configuration file specifies the layout of the GUI and which servers to connect to.
 
