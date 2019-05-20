@@ -500,6 +500,11 @@ event_codes[0] = "NoEvent"
 wavelength_events = [code for event, code in globals().items()
                      if event.startswith("cmi") and ("Wavelength" in event)]
 
+errors = {
+    code: name[7:] for name, code in globals().items()
+    if name.startswith("ResERR_")
+    }
+
 
 def event_to_str(event_code):
     """ Converts a WLM event code number to a string
@@ -510,3 +515,10 @@ def event_to_str(event_code):
         event_code = event_code.value
 
     return event_codes.get(event_code, str(event_code))
+
+
+def error_to_str(error):
+    """ Converts a WLM error code to a string.
+
+    """
+    return errors.get(error, "unknown: {}".format(error))

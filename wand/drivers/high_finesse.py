@@ -281,7 +281,9 @@ class WLM:
         elif freq == wlm.ErrLowSignal:
             return WLMMeasurementStatus.UNDER_EXPOSED, 0
         else:
-            raise WLMException(freq)
+            logger.error("error getting frequency: {}"
+                         .format(wlm.error_to_str(freq)))
+            return WLMMeasurementStatus.ERROR, 0
 
     def get_exposure_min(self):
         """ Returns the minimum exposure times in ms """
@@ -321,8 +323,9 @@ class WLM:
         peak = self.lib.GetAmplitudeNum(self.active_switch_ch,
                                         [wlm.cMax1, wlm.cMax2][ccd], 0)
         if peak < 0:
-            raise WLMException(
-                "Error reading WLM fringe height: {}". format(peak))
+            logger.error("error getting peak height: {}"
+                         .format(wlm.error_to_str(peak)))
+            return WLMMeasurementStatus.ERROR, 0
         return peak/3500.  # to do, figure out what the scale factor should be!
 
     def get_switch(self):
