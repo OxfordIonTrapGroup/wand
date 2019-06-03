@@ -101,7 +101,7 @@ class WLM:
         # hook up wait for event mechanism
         if self.lib.Instantiate(wlm.cInstNotification,
                                 wlm.cNotifyInstallWaitEvent,
-                                c_long(1000),  # 1s timeout
+                                c_long(max(self._exp_max)+100),  # timeout
                                 0) == 0:
             raise WLMException("Error hooking up WLM callbacks")
 
