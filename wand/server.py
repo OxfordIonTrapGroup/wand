@@ -200,7 +200,7 @@ class ControlInterface:
         """ Sets the reference frequency for a laser (Hz) """
         self._validate_laser(laser)
         f_ref = _validate_numeric(f_ref, "f_ref")
-        self.laser_db[laser]["f_ref"] = f_ref
+        self._server.laser_db[laser]["f_ref"] = f_ref
         self._server.save_config_file()
 
     def set_fast_mode(self, laser, enabled=True):
