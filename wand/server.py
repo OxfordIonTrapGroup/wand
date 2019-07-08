@@ -104,7 +104,7 @@ class ControlInterface:
                 return next(self._server.measurement_ids)  # fake task id
 
             freq = self._server.freq_db.raw_view[laser]["freq"]
-            freq = self._server.freq_db.raw_view[laser]["status"]
+            status = self._server.freq_db.raw_view[laser]["status"]
             osa = self._server.osa_db.raw_view[laser]["trace"]
 
         else:
