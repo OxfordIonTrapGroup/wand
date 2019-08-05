@@ -22,6 +22,10 @@ class LaserOwnedException(Exception):
     pass
 
 
+class LockException(Exception):
+    pass
+
+
 def get_config_path(args, name_suffix=""):
     config_file = "{}{}_config.pyon".format(args.name, name_suffix)
     wand_dir = os.path.dirname(wand.__file__)

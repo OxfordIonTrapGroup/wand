@@ -79,6 +79,9 @@ class WandServer:
         self.config = load_config(args, "_server")
         self.lasers = self.config["lasers"].keys()
 
+        for laser in self.lasers:
+            self.config["lasers"][laser]["lock_ready"] = False
+
         # connect to hardware
         self.wlm = WLM(args.simulation)
         self.osas = OSAs(self.config["osas"], args.simulation)
@@ -180,17 +183,23 @@ class WandServer:
             return
 
         while self.running:
+            conf["lock_ready"] = False
 
             try:
                 iface = DLPro(conf["host"],
                               target=conf.get("target", "laser1"))
             except OSError:
-                logger.info("could not connect to laser '{}'".format(laser))
-                await asyncio.sleep(10)
+                logger.warning(
+                    "could not connect to laser '{}', retrying in 60s"
+                    .format(laser))
+                if conf["locked"]:
+                    self.control_interface.unlock(laser, conf["lock_owner"])
+                await asyncio.sleep(60)
                 continue
 
             self.wake_locks[laser].set()
             while self.running:
+                conf["lock_ready"] = False
 
                 if not conf["locked"]:
                     await self.wake_locks[laser].wait()
@@ -250,12 +259,15 @@ class WandServer:
                 except OSError:
                     logger.warning("Connection to laser '{}' lost"
                                    .format(laser))
-                    break
+                    self.control_interface.unlock(laser, conf["lock_owner"])
+                    await asyncio.sleep(0)
 
         try:
             iface.close()
         except Exception:
             pass
+        finally:
+            conf["lock_ready"] = False
 
     async def measurement_task(self):
         """ Process queued measurements """

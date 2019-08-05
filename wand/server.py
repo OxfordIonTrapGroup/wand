@@ -3,7 +3,7 @@ import time
 import asyncio
 import logging
 
-from wand.tools import LaserOwnedException
+from wand.tools import LaserOwnedException, LockException
 
 logger = logging.getLogger(__name__)
 
@@ -235,6 +235,11 @@ class ControlInterface:
         set_point = _validate_numeric(set_point, "set_point")
         timeout = None if timeout is None else _validate_numeric(timeout,
                                                                  "timeout")
+
+        if not self._server.laser_db.raw_view[laser]["lock_ready"]:
+            raise LockException(
+                "Laser lock not ready. Problem trying to connect to laser "
+                "controller? See the server log for details...")
 
         if set_point is None:
             set_point = self._server.laser_db.raw_view[laser]["lock_set_point"]
