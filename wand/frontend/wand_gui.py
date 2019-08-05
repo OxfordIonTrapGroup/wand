@@ -211,7 +211,7 @@ class WandGUI():
 
                     logger.info("Reconnected to server '{}'".format(server))
                     break
-                except (ConnectionError, OSError):
+                except OSError:
                     logger.info("could not connect to '{}' retry in 10s..."
                                 .format(server))
                     await asyncio.sleep(10)

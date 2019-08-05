@@ -184,7 +184,7 @@ class WandServer:
             try:
                 iface = DLPro(conf["host"],
                               target=conf.get("target", "laser1"))
-            except ConnectionError:
+            except OSError:
                 logger.info("could not connect to laser '{}'".format(laser))
                 await asyncio.sleep(10)
                 continue
@@ -247,7 +247,7 @@ class WandServer:
 
                     iface.set_pzt_voltage(v_pzt)
 
-                except ConnectionError:
+                except OSError:
                     logger.warning("Connection to laser '{}' lost"
                                    .format(laser))
                     break

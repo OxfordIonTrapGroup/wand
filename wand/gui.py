@@ -175,7 +175,7 @@ class LaserDisplay:
             try:
                 exp_min = await self.client.get_min_exposures()
                 exp_max = await self.client.get_max_exposures()
-            except (ConnectionError, AttributeError):
+            except (OSError, AttributeError):
                 self.setConnected(False)
                 return
 
@@ -282,7 +282,7 @@ class LaserDisplay:
                                 laser=laser, age=poll_time, priority=priority,
                                 get_osa_trace=True, blocking=True, mute=True)
                             next_measurement_in = poll_time
-                        except (ConnectionError, AttributeError):
+                        except (OSError, AttributeError):
                             self.server = ""
                             continue
 
@@ -300,14 +300,14 @@ class LaserDisplay:
         try:
             await self.client.set_fast_mode(self.laser,
                                             self.fast_mode.isChecked())
-        except (ConnectionError, AttributeError):
+        except (OSError, AttributeError):
             self.setConnected(False)
 
     async def auto_expose_cb(self):
         try:
             await self.client.set_auto_exposure(self.laser,
                                                 self.auto_exposure.isChecked())
-        except (ConnectionError, AttributeError):
+        except (OSError, AttributeError):
             self.setConnected(False)
 
     def ref_editable_cb(self):
@@ -321,7 +321,7 @@ class LaserDisplay:
         try:
             await self.client.set_reference_freq(self.laser,
                                                  self.f_ref.value()*1e12)
-        except (ConnectionError, AttributeError):
+        except (OSError, AttributeError):
             self.setConnected(False)
 
     async def exposure_cb(self, ccd):
@@ -329,7 +329,7 @@ class LaserDisplay:
             await self.client.set_exposure(self.laser,
                                            self.exposure[ccd].value(),
                                            ccd)
-        except (ConnectionError, AttributeError):
+        except (OSError, AttributeError):
             self.setConnected(False)
 
     def update_fast_mode(self):
