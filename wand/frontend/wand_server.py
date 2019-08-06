@@ -198,8 +198,9 @@ class WandServer:
                 continue
 
             self.wake_locks[laser].set()
+            conf["lock_ready"] = True
+
             while self.running:
-                conf["lock_ready"] = False
 
                 if not conf["locked"]:
                     await self.wake_locks[laser].wait()
@@ -261,6 +262,7 @@ class WandServer:
                                    .format(laser))
                     self.control_interface.unlock(laser, conf["lock_owner"])
                     await asyncio.sleep(0)
+                    break
 
         try:
             iface.close()
