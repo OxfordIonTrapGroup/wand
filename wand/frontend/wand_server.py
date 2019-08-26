@@ -67,6 +67,11 @@ def get_argparser():
                         default=1800,
                         type=int,
                         help="fast mode timeout (s) (default: '%(default)s')")
+    parser.add_argument("-b", "--backup-dir",
+                        default="",
+                        type=str,
+                        help="directory containing backup copies of "
+                             "configuration files")
     return parser
 
 

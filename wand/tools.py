@@ -30,10 +30,11 @@ def get_config_path(args, name_suffix=""):
     config_file = "{}{}_config.pyon".format(args.name, name_suffix)
     wand_dir = os.path.dirname(wand.__file__)
     config_path = os.path.join(wand_dir, config_file)
-    if os.name == "nt":
-        backup_path = os.path.join("z:\\", "wand", config_file)
+
+    if args.backup_dir == "":
+        backup_path = ""
     else:
-        backup_path = os.path.join("~", "steaneShared", "wand", config_file)
+        backup_path = os.path.join(args.backup_dir, "wand", config_file)
         backup_path = os.path.expanduser(backup_path)
     return config_path, backup_path
 
