@@ -24,16 +24,6 @@ logger = logging.getLogger(__name__)
 
 def get_argparser():
     parser = argparse.ArgumentParser(description="WAnD GUI")
-    parser.add_argument("-poll", "--poll-time",
-                        default=300,
-                        type=float,
-                        help="Min time between (s) updates when not in 'fast "
-                        "mode' (default: '%(default)s')")
-    parser.add_argument("-fpoll", "--poll-time-fast",
-                        default=0.01,
-                        type=float,
-                        help="Min time (s) between updates when in 'fast mode'"
-                             " (default: '%(default)s')")
     parser.add_argument("-n", "--name",
                         default="test",
                         help="server name, used to locate configuration file")
@@ -132,7 +122,7 @@ class WandGUI():
 
         if mod["action"] == "init":
             # called when we first connect to a Notifier
-            # we only activate the GUI chanel for a laser once we have initial
+            # we only activate the GUI channel for a laser once we have initial
             # data from all three Notifier interfaces (laser, freq, osa)
             displays = self.laser_displays
 

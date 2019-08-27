@@ -218,6 +218,15 @@ class ControlInterface:
         self._server.laser_db[laser]["fast_mode_set_at"] = time.time()
         self._server.save_config_file()
 
+    def get_poll_times(self):
+        """ Returns the tuple (poll_time, fast_poll_time).
+
+        These poll times are used by clients, such as the GUI, to determine
+        how often to request new data.
+        """
+        config = self._server.config
+        return (config["poll_time"], config["fast_poll_time"])
+
     def lock(self, laser, set_point=None, name="", timeout=300):
         """ Locks a laser to the wavemeter.
 

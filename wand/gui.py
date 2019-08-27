@@ -175,6 +175,8 @@ class LaserDisplay:
             try:
                 exp_min = await self.client.get_min_exposures()
                 exp_max = await self.client.get_max_exposures()
+                polls = await self.client.get_poll_times()
+                (self.poll_time, self.fast_poll_time) = polls
             except (OSError, AttributeError):
                 self.setConnected(False)
                 return
@@ -265,10 +267,10 @@ class LaserDisplay:
 
                     # ask for new data
                     if self.fast_mode.isChecked():
-                        poll_time = self._gui.args.poll_time_fast
+                        poll_time = self.fast_poll_time
                         priority = FAST_MODE_PRIORITY
                     else:
-                        poll_time = self._gui.args.poll_time
+                        poll_time = self.poll_time
                         priority = REGULAR_UPDATE_PRIORITY
 
                     data_timestamp = min(self._gui.freq_db[laser]["timestamp"],
