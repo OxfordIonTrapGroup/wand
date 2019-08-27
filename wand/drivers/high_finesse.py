@@ -53,9 +53,18 @@ class WLM:
         # Check the WLM server application is running and start it if necessary
         if not lib.Instantiate(wlm.cInstCheckForWLM, 0, 0, 0):
             logger.info("Starting WLM server")
-            if wlm.flServerStarted != lib.ControlWLMEx(
-                    wlm.cCtrlWLMShow | wlm.cCtrlWLMWait, 0, 0, 50000, 1):
-                raise WLMException("Error starting WLM server application")
+            res = lib.ControlWLMEx(wlm.cCtrlWLMShow | wlm.cCtrlWLMWait,
+                                   0, 0, 10000, 1)
+            codes = wlm.control_wlm_to_str(res)
+            if "flServerStarted" not in codes:
+                raise WLMException("Error starting WLM server application : "
+                                   "{}".format(codes))
+            for code in codes:
+                if code == "flServerStarted":
+                    continue
+                logger.warning("Unexpected return code from ControlWLMEx: {} "
+                               .format(code))
+
         else:
             logger.info("Connected to WLM server")
 

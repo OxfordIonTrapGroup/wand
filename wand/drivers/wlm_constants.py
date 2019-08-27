@@ -506,6 +506,43 @@ errors = {
     }
 
 
+control_wlm_errors = {flServerStarted: "flServerStarted",
+                      flErrDeviceNotFound: "flErrDeviceNotFound",
+                      flErrDriverError: "flErrDriverError",
+                      flErrUSBError: "flErrUSBError",
+                      flErrUnknownDeviceError: "flErrUnknownDeviceError",
+                      flErrWrongSN: "flErrWrongSN",
+                      flErrUnknownSN: "flErrUnknownSN",
+                      flErrTemperatureError: "flErrTemperatureError",
+                      flErrPressureError: "flErrPressureError",
+                      flErrCancelledManually: "flErrCancelledManually",
+                      flErrWLMBusy: "flErrWLMBusy",
+                      flErrUnknownError: "flErrUnknownError",
+                      flNoInstalledVersionFound: "flNoInstalledVersionFound",
+                      flDesiredVersionNotFound: "flDesiredVersionNotFound",
+                      flErrFileNotFound: "flErrFileNotFound",
+                      flErrParmOutOfRange: "flErrParmOutOfRange",
+                      flErrCouldNotSet: "flErrCouldNotSet",
+                      flErrEEPROMFailed: "flErrEEPROMFailed",
+                      flErrFileFailed: "flErrFileFailed",
+                      flDeviceDataNewer: "flDeviceDataNewer",
+                      flFileDataNewer: "flFileDataNewer",
+                      flErrDeviceVersionOld: "flErrDeviceVersionOld",
+                      flErrFileVersionOld: "flErrFileVersionOld",
+                      flDeviceStampNewer: "flErrFileVersionOld",
+                      flFileStampNewer: "flFileStampNewer"}
+
+
+def control_wlm_to_str(return_code):
+    """ Converts the return code of a call to ControlWLMEx (with res = 1) to a
+    list of strings. """
+    codes = []
+    for flag, code in control_wlm_errors.items():
+        if (return_code & flag) != 0:
+            codes.append(code)
+    return codes
+
+
 def event_to_str(event_code):
     """ Converts a WLM event code number to a string
 
@@ -518,7 +555,5 @@ def event_to_str(event_code):
 
 
 def error_to_str(error):
-    """ Converts a WLM error code to a string.
-
-    """
+    """ Converts a WLM error code to a string. """
     return errors.get(error, "unknown: {}".format(error))
