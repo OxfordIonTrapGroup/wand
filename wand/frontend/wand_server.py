@@ -339,6 +339,12 @@ class WandServer:
             if laser_conf["auto_exposure"]:
                 new_exp = laser_conf["exposure"]
                 for ccd, peak in enumerate(peaks):
+
+                    # don't try to find a suitable exposure for lasers that
+                    # aren't on!
+                    if peak < 0.05:
+                        break
+
                     if not (0.4 < peak < 0.6):
                         exp = laser_conf["exposure"][ccd]
                         new_exp[ccd] = exp + 1 if peak < 0.4 else exp - 1
