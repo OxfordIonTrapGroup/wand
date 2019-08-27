@@ -150,6 +150,7 @@
     },
     "switch": {
         "ip": "10.255.6.147",
-        "type": "leoni"
+        "type": "leoni",
+        "dead_time": 0.075
     }
 }

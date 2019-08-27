@@ -58,11 +58,6 @@ def get_argparser():
     parser.add_argument("--simulation",
                         action='store_true',
                         help="run in simulation mode")
-    parser.add_argument("-dt", "--switch-dead-time",
-                        default=0.075,
-                        type=float,
-                        help="dead time (s) after changing channels on the "
-                             "fibre switch (default: '%(default)s')")
     parser.add_argument("--fast-mode-timeout",
                         default=1800,
                         type=int,
@@ -300,7 +295,7 @@ class WandServer:
                 meas["get_osa_trace"] = True
                 active_laser = meas["laser"]
 
-                await asyncio.sleep(self.args.switch_dead_time)
+                await asyncio.sleep(self.config["switch"]["dead_time"])
 
             exposure = laser_conf["exposure"]
             for ccd, exp in enumerate(exposure):
