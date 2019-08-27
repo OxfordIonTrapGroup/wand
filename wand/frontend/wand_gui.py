@@ -40,6 +40,11 @@ def get_argparser():
     parser.add_argument("-f", "--log-to-file",
                         action="store_true",
                         help="Save log output to file")
+    parser.add_argument("-b", "--backup-dir",
+                        default="",
+                        type=str,
+                        help="directory containing backup copies of "
+                             "configuration files")
     add_common_args(parser)
 
     return parser
