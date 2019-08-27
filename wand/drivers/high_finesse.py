@@ -65,8 +65,7 @@ class WLM:
                 logger.warning("Unexpected return code from ControlWLMEx: {} "
                                .format(code))
 
-        else:
-            logger.info("Connected to WLM server")
+        logger.info("Connected to WLM server")
 
         self.wlm_model = lib.GetWLMVersion(0)
         self.wlm_hw_rev = lib.GetWLMVersion(1)
@@ -107,17 +106,16 @@ class WLM:
             if lib.SetExposureModeNum(channel + 1, 0) < 0:
                 logger.warning("Error setting WLM exposure mode")
 
-        # hook up wait for event mechanism
+            # hook up wait for event mechanism
         if self.lib.Instantiate(wlm.cInstNotification,
                                 wlm.cNotifyInstallWaitEvent,
                                 c_long(max(self._exp_max)+100),  # timeout
                                 0) == 0:
             raise WLMException("Error hooking up WLM callbacks")
 
-        try:
-            self.get_frequency()
-        except WLMException:
-            pass
+        # set to manual measurement control
+        self._update_exposure(self._exp_min, block=False)
+        self._trigger_single_measurement()
 
         logger.info("Connected to " + self.identify())
 
@@ -164,11 +162,13 @@ class WLM:
                 "Error reading WLM pressure: {}". format(pressure))
         return pressure
 
-    def _update_exposure(self, exposure=None):
+    def _update_exposure(self, exposure=None, block=True):
         """ Updates the WLM exposure times:
 
         :param exposure: if None then we use self._exposure, otherwise this
         should be a list of exposure times to set.
+        :param block: if True, this method blocks until the exposure update is
+        complete.
         """
         max_ccd_changed = -1
         exposure = self._exposure if exposure is None else exposure
@@ -187,7 +187,8 @@ class WLM:
 
         event = vars(wlm)["cmiExposureValue{}{}".format(max_ccd_changed+1,
                                                         self.active_switch_ch)]
-        self._wait_for_event([event], exposure[max_ccd_changed])
+        if block:
+            self._wait_for_event([event], exposure[max_ccd_changed])
 
     def _get_fresh_data(self):
         """ Gets a "fresh" wavelength measurement, guaranteed to occur after
@@ -272,15 +273,11 @@ class WLM:
         # this should never time out, but it does...
         # I've had a long discussion with the HF engineers about why this
         # occurs on some units, without any real success.
-        for attempt in range(3):
-            try:
-                self._get_fresh_data()
-                freq = self.lib.GetFrequencyNum(self.active_switch_ch, 0)
-                break
-            except WLMException as e:
-                logger.error("error during frequency read attempt number {}: "
-                             "{}".format(attempt, e))
-        else:
+        try:
+            self._get_fresh_data()
+            freq = self.lib.GetFrequencyNum(self.active_switch_ch, 0)
+        except WLMException as e:
+            logger.error("error during frequency read: {}".format(e))
             return WLMMeasurementStatus.ERROR, 0
 
         if freq > 0:
