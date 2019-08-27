@@ -34,7 +34,7 @@ def get_config_path(args, name_suffix=""):
     if args.backup_dir == "":
         backup_path = ""
     else:
-        backup_path = os.path.join(args.backup_dir, "wand", config_file)
+        backup_path = os.path.join(args.backup_dir, config_file)
         backup_path = os.path.expanduser(backup_path)
     return config_path, backup_path
 
