@@ -54,7 +54,7 @@ class WLM:
         if not lib.Instantiate(wlm.cInstCheckForWLM, 0, 0, 0):
             logger.info("Starting WLM server")
             if wlm.flServerStarted != lib.ControlWLMEx(
-                    wlm.cCtrlWLMShow | wlm.cCtrlWLMWait, 0, 0, 20000, 1):
+                    wlm.cCtrlWLMShow | wlm.cCtrlWLMWait, 0, 0, 50000, 1):
                 raise WLMException("Error starting WLM server application")
         else:
             logger.info("Connected to WLM server")
