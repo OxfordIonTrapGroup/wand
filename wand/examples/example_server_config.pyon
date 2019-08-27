@@ -1,4 +1,6 @@
 {
+    "poll_time": 300,
+    "fast_poll_time": 0.1,
     "lasers": {
         "example_393": {
             "auto_exposure": true,
@@ -14,7 +16,7 @@
             "lock_poll_time": 10.0,
             "lock_set_point": 0.0,
             "lock_timeout": null,
-            "locked": true,
+            "locked": false,
             "locked_at": 0,
             "osa": "blue"
         },
@@ -32,7 +34,7 @@
             "lock_poll_time": 10.0,
             "lock_set_point": 0.0,
             "lock_timeout": null,
-            "locked": true,
+            "locked": false,
             "locked_at": 0,
             "osa": "blue"
         },
@@ -50,7 +52,7 @@
             "lock_poll_time": 10.0,
             "lock_set_point": 0.0,
             "lock_timeout": null,
-            "locked": true,
+            "locked": false,
             "locked_at": 0,
             "osa": "blue"
         },
@@ -68,7 +70,7 @@
             "lock_poll_time": 10.0,
             "lock_set_point": 0.0,
             "lock_timeout": null,
-            "locked": true,
+            "locked": false,
             "locked_at": 0,
             "osa": "red"
         },
@@ -86,7 +88,7 @@
             "lock_poll_time": 10.0,
             "lock_set_point": 0.0,
             "lock_timeout": null,
-            "locked": true,
+            "locked": false,
             "locked_at": 0,
             "osa": "red"
         },
@@ -104,7 +106,7 @@
             "lock_poll_time": 10.0,
             "lock_set_point": 0.0,
             "lock_timeout": null,
-            "locked": true,
+            "locked": false,
             "locked_at": 0,
             "osa": "red"
         },
@@ -122,7 +124,7 @@
             "lock_poll_time": 10.0,
             "lock_set_point": 0.0,
             "lock_timeout": null,
-            "locked": true,
+            "locked": false,
             "locked_at": 0,
             "osa": "red"
         }
