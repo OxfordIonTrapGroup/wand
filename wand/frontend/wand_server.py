@@ -20,7 +20,8 @@ from concurrent.futures import ThreadPoolExecutor
 from sipyco import pyon
 from sipyco.pc_rpc import Server as RPCServer
 from sipyco.sync_struct import Publisher, Notifier
-from sipyco.common_args import (simple_network_args, bind_address_from_args, init_logger_from_args, verbosity_args)
+from sipyco.common_args import (simple_network_args, bind_address_from_args, 
+                                init_logger_from_args, verbosity_args)
 from sipyco.asyncio_tools import atexit_register_coroutine
 
 from wand.drivers.leoni_switch import LeoniSwitch

@@ -4,10 +4,7 @@ import argparse
 import time
 
 import influxdb
-
 from sipyco.pc_rpc import Client as RPCClient
-
-# verbosity_args() was renamed to add_common_args() in ARTIQ 5.0
 from sipyco.common_args import verbosity_args, init_logger_from_args
 
 from wand.tools import WLMMeasurementStatus
