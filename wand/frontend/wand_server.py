@@ -17,11 +17,12 @@ import logging
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
 
-from artiq.protocols import pyon
-from artiq.protocols.pc_rpc import Server as RPCServer
-from artiq.protocols.sync_struct import Publisher, Notifier
-from artiq.tools import (simple_network_args, atexit_register_coroutine,
-                         bind_address_from_args, init_logger)
+from sipyco import pyon
+from sipyco.pc_rpc import Server as RPCServer
+from sipyco.sync_struct import Publisher, Notifier
+from sipyco.common_args import (simple_network_args, bind_address_from_args, 
+                                init_logger_from_args, verbosity_args)
+from sipyco.asyncio_tools import atexit_register_coroutine
 
 from wand.drivers.leoni_switch import LeoniSwitch
 from wand.drivers.high_finesse import WLM
@@ -31,7 +32,6 @@ from wand.tools import (load_config, backup_config, regular_config_backup,
 from wand.server import ControlInterface
 from wand.drivers.dl_pro import DLPro
 
-from artiq.tools import add_common_args
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ def get_argparser():
         ("notify", "notifications", 3250),
         ("control", "control", 3251),
     ])
-    add_common_args(parser)
+    verbosity_args(parser)
     parser.add_argument("-n", "--name",
                         default="test",
                         help="server name, used to locate configuration file")
@@ -74,7 +74,7 @@ class WandServer:
     def __init__(self):
 
         self.args = args = get_argparser().parse_args()
-        init_logger(args)
+        init_logger_from_args(args)
 
         self.config = load_config(args, "_server")
         self.lasers = self.config["lasers"].keys()

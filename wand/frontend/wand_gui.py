@@ -8,8 +8,9 @@ import asyncio
 import atexit
 import functools
 
-from artiq.tools import init_logger, atexit_register_coroutine, add_common_args
-from artiq.protocols.sync_struct import Subscriber
+from sipyco.common_args import init_logger_from_args, verbosity_args
+from sipyco.asyncio_tools import atexit_register_coroutine
+from sipyco.sync_struct import Subscriber
 
 from quamash import QEventLoop
 from PyQt5 import QtWidgets, QtGui
@@ -35,7 +36,7 @@ def get_argparser():
                         type=str,
                         help="directory containing backup copies of "
                              "configuration files")
-    add_common_args(parser)
+    verbosity_args(parser)
 
     return parser
 
@@ -54,7 +55,7 @@ class WandGUI():
     def __init__(self):
 
         self.args = args = get_argparser().parse_args()
-        init_logger(args)
+        init_logger_from_args(args)
 
         if args.log_to_file:
             log_file = pkg_resources.resource_filename("wand", "log.txt")

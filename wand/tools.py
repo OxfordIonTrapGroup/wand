@@ -5,7 +5,7 @@ import asyncio
 import shutil
 import logging
 
-from artiq.protocols import pyon
+from sipyco import pyon
 import wand
 
 logger = logging.getLogger(__name__)

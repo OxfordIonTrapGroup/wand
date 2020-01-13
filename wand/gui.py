@@ -8,7 +8,7 @@ import pyqtgraph as pg
 import pyqtgraph.dockarea as dock
 from PyQt5 import QtGui
 
-from artiq.protocols.pc_rpc import AsyncioClient as RPCClient
+from sipyco.pc_rpc import AsyncioClient as RPCClient
 
 from wand.tools import WLMMeasurementStatus
 

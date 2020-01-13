@@ -4,15 +4,8 @@ import argparse
 import time
 
 import influxdb
-
-from artiq.tools import init_logger
-from artiq.protocols.pc_rpc import Client as RPCClient
-
-# verbosity_args() was renamed to add_common_args() in ARTIQ 5.0; support both.
-try:
-    from artiq.tools import add_common_args
-except ImportError:
-    from artiq.tools import verbosity_args as add_common_args
+from sipyco.pc_rpc import Client as RPCClient
+from sipyco.common_args import verbosity_args, init_logger_from_args
 
 from wand.tools import WLMMeasurementStatus
 
@@ -21,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 def get_argparser():
     parser = argparse.ArgumentParser(description="WAnD laser locker")
-    add_common_args(parser)
+    verbosity_args(parser)
     parser.add_argument("-s", "--server",
                         action="append",
                         help="Add a WAnD server by IP address")
@@ -39,7 +32,7 @@ def get_argparser():
 def main():
 
     args = get_argparser().parse_args()
-    init_logger(args)
+    init_logger_from_args(args)
 
     servers = {
         idx: {
