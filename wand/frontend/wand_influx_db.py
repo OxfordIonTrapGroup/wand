@@ -28,6 +28,11 @@ def get_argparser():
                         "--database",
                         help="influxdb database to log to (default: '%(default)s')",
                         default="lasers")
+    parser.add_argument("--timeout",
+                        help=("timeout for RPC connection to servers, in seconds " +
+                              "(default: %(default)s s)"),
+                        type=float,
+                        default=5.0)
     return parser
 
 
@@ -42,7 +47,9 @@ def main():
 
         for server in servers:
             try:
-                client = RPCClient(server["host"], server["control"])
+                client = RPCClient(server["host"],
+                                   server["control"],
+                                   timeout=args.timeout)
                 lasers = client.get_laser_db()
                 for laser in lasers:
                     meas = client.get_freq(laser,
