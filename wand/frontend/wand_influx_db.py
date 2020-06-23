@@ -24,10 +24,20 @@ def get_argparser():
                         help="time between log updates (s) (default: '%(default)s')",
                         type=int,
                         default=300)
-    parser.add_argument("-db",
+    influx = parser.add_argument_group("InfluxDB")
+    influx.add_argument("-db",
                         "--database",
                         help="influxdb database to log to (default: '%(default)s')",
                         default="lasers")
+    influx.add_argument("--host-db",
+                        help="InfluxDB host name (default: '%(default)s')",
+                        default="10.255.6.4")
+    influx.add_argument("--user-db",
+                        help="InfluxDB username (default: '%(default)s')",
+                        default="admin")
+    influx.add_argument("--password-db",
+                        help="InfluxDB password (default: '%(default)s')",
+                        default="admin")
     parser.add_argument("--timeout",
                         help=("timeout for RPC connection to servers, in seconds " +
                               "(default: %(default)s s)"),
@@ -84,10 +94,10 @@ def main():
             continue
 
         try:
-            influx = influxdb.InfluxDBClient(host="10.255.6.4",
+            influx = influxdb.InfluxDBClient(host=args.host_db,
                                              database=args.database,
-                                             username="admin",
-                                             password="admin")
+                                             username=args.user_db,
+                                             password=args.password_db)
 
             influx.write_points(measurements)
         finally:
