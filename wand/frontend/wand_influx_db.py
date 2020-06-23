@@ -40,16 +40,12 @@ def main():
     args = get_argparser().parse_args()
     init_logger_from_args(args)
 
-    servers = [{"host": ip, "notify": 3250, "control": 3251} for ip in args.server]
-
     while True:
         measurements = []
 
-        for server in servers:
+        for server in args.server:
             try:
-                client = RPCClient(server["host"],
-                                   server["control"],
-                                   timeout=args.timeout)
+                client = RPCClient(server, 3251, timeout=args.timeout)
                 lasers = client.get_laser_db()
                 for laser in lasers:
                     meas = client.get_freq(laser,
