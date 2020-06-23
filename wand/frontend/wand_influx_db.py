@@ -26,7 +26,7 @@ def get_argparser():
                         default=300)
     parser.add_argument("-db",
                         "--database",
-                        help="influxdb database to log to '%(default)s')",
+                        help="influxdb database to log to (default: '%(default)s')",
                         default="lasers")
     return parser
 
