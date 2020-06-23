@@ -35,19 +35,12 @@ def main():
     args = get_argparser().parse_args()
     init_logger_from_args(args)
 
-    servers = {
-        idx: {
-            "host": ip,
-            "notify": 3250,
-            "control": 3251
-        }
-        for idx, ip in enumerate(args.server)
-    }
+    servers = [{"host": ip, "notify": 3250, "control": 3251} for ip in args.server]
 
     while True:
         measurements = []
 
-        for _, server in servers.items():
+        for server in servers:
             try:
                 client = RPCClient(server["host"], server["control"])
                 lasers = client.get_laser_db()
