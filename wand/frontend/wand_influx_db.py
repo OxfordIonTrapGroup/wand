@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_argparser():
-    parser = argparse.ArgumentParser(description="WAnD laser locker")
+    parser = argparse.ArgumentParser(description="WAnD InfluxDB logger")
     verbosity_args(parser)
     parser.add_argument("-s", "--server",
                         action="append",
