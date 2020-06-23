@@ -40,9 +40,12 @@ def main():
     args = get_argparser().parse_args()
     init_logger_from_args(args)
 
+    next_poll_time = time.monotonic()
     while True:
-        measurements = []
+        time.sleep(max(0, next_poll_time - time.monotonic()))
+        next_poll_time += args.poll_time
 
+        measurements = []
         for server in args.server:
             try:
                 client = RPCClient(server, 3251, timeout=args.timeout)
@@ -77,9 +80,7 @@ def main():
                 logger.warning("Error querying server {}".format(server))
             finally:
                 client.close_rpc()
-
-        if measurements == []:
-            time.sleep(args.poll_time)
+        if not measurements:
             continue
 
         try:
@@ -91,7 +92,6 @@ def main():
             influx.write_points(measurements)
         finally:
             influx.close()
-        time.sleep(args.poll_time)
 
 
 if __name__ == "__main__":
