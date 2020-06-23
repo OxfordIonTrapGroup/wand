@@ -15,22 +15,23 @@ logger = logging.getLogger(__name__)
 def get_argparser():
     parser = argparse.ArgumentParser(description="WAnD InfluxDB logger")
     verbosity_args(parser)
-    parser.add_argument("-s", "--server",
+    parser.add_argument("-s",
+                        "--server",
                         action="append",
                         help="Add a WAnD server by IP address")
-    parser.add_argument("-poll", "--poll-time",
-                        help="time between log updates (s) (default: "
-                             "'%(default)s')",
+    parser.add_argument("-poll",
+                        "--poll-time",
+                        help="time between log updates (s) (default: '%(default)s')",
                         type=int,
                         default=300)
-    parser.add_argument("-db", "--database",
+    parser.add_argument("-db",
+                        "--database",
                         help="influxdb database to log to '%(default)s')",
                         default="lasers")
     return parser
 
 
 def main():
-
     args = get_argparser().parse_args()
     init_logger_from_args(args)
 
@@ -40,10 +41,10 @@ def main():
             "notify": 3250,
             "control": 3251
         }
-        for idx, ip in enumerate(args.server)}
+        for idx, ip in enumerate(args.server)
+    }
 
     while True:
-
         measurements = []
 
         for _, server in servers.items():
@@ -75,10 +76,7 @@ def main():
                         }
                     })
                     logger.info("{}: freq {} THz, f_ref {} THz, "
-                                "detuning {} MHz".format(laser,
-                                                         freq,
-                                                         f_ref,
-                                                         delta))
+                                "detuning {} MHz".format(laser, freq, f_ref, delta))
             except OSError:
                 logger.warning("Error querying server {}".format(server))
             finally:
@@ -89,11 +87,10 @@ def main():
             continue
 
         try:
-            influx = influxdb.InfluxDBClient(
-                host="10.255.6.4",
-                database=args.database,
-                username="admin",
-                password="admin")
+            influx = influxdb.InfluxDBClient(host="10.255.6.4",
+                                             database=args.database,
+                                             username="admin",
+                                             password="admin")
 
             influx.write_points(measurements)
         finally:
