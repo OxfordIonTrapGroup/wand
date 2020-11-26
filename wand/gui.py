@@ -293,8 +293,8 @@ class LaserDisplay:
                     continue
 
                 try:
-                    await asyncio.wait_for(self.wake_loop.wait(),
-                                           next_measurement_in,loop = self._gui.loop)
+                    await asyncio.wait_for(self.wake_loop.wait(), next_measurement_in,
+                                           loop=self._gui.loop)
                 except asyncio.TimeoutError:
                     pass
 
@@ -322,7 +322,7 @@ class LaserDisplay:
     async def f_ref_cb(self):
         try:
             await self.client.set_reference_freq(self.laser,
-                                                 self.f_ref.value()*1e12)
+                                                 self.f_ref.value() * 1e12)
         except (OSError, AttributeError):
             self.setConnected(False)
 
@@ -356,7 +356,7 @@ class LaserDisplay:
                 self.exposure[ccd].blockSignals(False)
 
     def update_reference(self):
-        f_ref = self._gui.laser_db[self.laser]["f_ref"]/1e12
+        f_ref = self._gui.laser_db[self.laser]["f_ref"] / 1e12
         self.f_ref.blockSignals(True)
         self.f_ref.setValue(f_ref)
         if self.connected:
@@ -367,7 +367,7 @@ class LaserDisplay:
         if self._gui.osa_db[self.laser]["trace"] is None:
             return
 
-        trace = np.array(self._gui.osa_db[self.laser]["trace"])/32767
+        trace = np.array(self._gui.osa_db[self.laser]["trace"]) / 32767
         self.osa_curve.setData(trace)
 
         self.wake_loop.set()  # recalculate when next measurement due
@@ -388,8 +388,8 @@ class LaserDisplay:
             if abs(freq - f_ref) > 100e9:
                 detuning = "-"
             else:
-                detuning = "{:.1f}".format((freq-f_ref)/1e6)
-            freq = "{:.7f} THz".format(freq/1e12)
+                detuning = "{:.1f}".format((freq - f_ref) / 1e6)
+            freq = "{:.7f} THz".format(freq / 1e12)
         elif status == WLMMeasurementStatus.UNDER_EXPOSED:
             freq = "-"
             detuning = "Low"
