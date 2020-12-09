@@ -19,8 +19,10 @@ requirements:
   build:
     - python >=3.8
   run:
-    - quamash
     - python >=3.8
+    - pyqt
+    - pyqtgraph
+    - quamash
     - sipyco
     - numpy
     - scipy
