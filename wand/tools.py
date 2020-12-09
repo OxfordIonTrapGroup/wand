@@ -42,7 +42,7 @@ def get_config_path(args, name_suffix=""):
         logger.info("Data directory does not exist, creating at {}".format(
             data_dir))
         os.makedirs(data_dir)
-    config_path = os.path.join(wand_dir, config_file)
+    config_path = os.path.join(data_dir, config_file)
 
     if args.backup_dir == "":
         backup_path = ""
