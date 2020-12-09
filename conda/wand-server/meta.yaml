@@ -24,4 +24,3 @@ requirements:
     - sipyco
     - numpy
     - scipy
-    - PyDAQmx
