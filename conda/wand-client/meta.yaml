@@ -20,6 +20,6 @@ requirements:
     - python >=3.8
   run:
     - python >=3.8
-    - artiq
+    - sipyco
     - numpy
     - scipy
