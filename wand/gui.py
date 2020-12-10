@@ -292,8 +292,8 @@ class LaserDisplay:
                     continue
 
                 try:
-                    await asyncio.wait_for(self.wake_loop.wait(), next_measurement_in,
-                                           loop=self._gui.loop)
+                    await asyncio.wait_for(self.wake_loop.wait(),
+                                           next_measurement_in)
                 except asyncio.TimeoutError:
                     pass
 
