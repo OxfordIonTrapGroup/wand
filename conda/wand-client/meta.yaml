@@ -22,7 +22,7 @@ requirements:
     - python >=3.8
     - pyqt
     - pyqtgraph
-    - quamash
+    - qasync
     - sipyco
     - numpy
     - scipy
