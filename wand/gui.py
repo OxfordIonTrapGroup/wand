@@ -408,8 +408,8 @@ class LaserDisplay:
         self.wake_loop.set()  # recalculate when next measurement due
 
     def update_laser_status(self):
-        locked = self._gui.laser_db[self.laser]["locked"]
-        owner = self._gui.laser_db[self.laser]["lock_owner"]
+        locked = self._gui.laser_db[self.laser].get("locked", False)
+        owner = self._gui.laser_db[self.laser].get("lock_owner", "")
 
         if not locked:
             self.laser_status.setText("unlocked")
