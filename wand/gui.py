@@ -243,9 +243,8 @@ class LaserDisplay:
                                               target_name="control")
                 await self.setConnected(True)
             # to do: cathch specific exceptions
-            except Exception as e:
-                logger.error("Error connecting to server '{}' {}"
-                             .format(self.server, e))
+            except Exception:
+                logger.exception("Error connecting to server '{}'")
                 continue
 
             while not self._gui.win.exit_request.is_set() and self.server:
