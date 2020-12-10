@@ -161,12 +161,12 @@ class LaserDisplay:
             self.wake_loop.set()
 
         else:
-            if self._gui.laser_db[self.laser]["osa"] == "blue":
-                self.colour = "5555ff"
-            elif self._gui.laser_db[self.laser]["osa"] == "red":
+            self.colour = self._gui.laser_db[self.laser].get("display_colour",
+                                                             0x7c7c7c)
+            if self.colour == "red":
                 self.colour = "ff5555"
-            else:
-                self.colour = "7c7c7c"
+            elif self.colour == "blue":
+                self.colour = "5555ff"
 
             self.name.setText(self.display_name,
                               color=self.colour,
