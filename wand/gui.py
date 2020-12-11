@@ -363,13 +363,13 @@ class LaserDisplay:
         self.update_freq()
 
     def update_osa_trace(self):
-        if self._gui.osa_db[self.laser]["trace"] is None:
+        self.wake_loop.set()  # recalculate when next measurement due
+
+        if self._gui.osa_db[self.laser].get("trace") is None:
             return
 
         trace = np.array(self._gui.osa_db[self.laser]["trace"]) / 32767
         self.osa_curve.setData(trace)
-
-        self.wake_loop.set()  # recalculate when next measurement due
 
     def update_freq(self):
 
