@@ -434,9 +434,12 @@ class WandServer:
         return (freq, peaks), osa
 
     def save_config_file(self):
-        self.config["lasers"] = self.laser_db.raw_view
-        config_path, _ = get_config_path(self.args, "_server")
-        pyon.store_file(config_path, self.config)
+        try:
+            self.config["lasers"] = self.laser_db.raw_view
+            config_path, _ = get_config_path(self.args, "_server")
+            pyon.store_file(config_path, self.config)
+        except Exception:
+            log.warning("error when trying to save config data")
 
 
 def main():
