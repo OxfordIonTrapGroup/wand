@@ -354,7 +354,18 @@ class WLM:
     def get_pattern(self):
         """ :returns: the interferometer pattern """
         if self.simulation:
-            return None
+            num_samples = 1024
+            x = np.arange(num_samples) + np.random.uniform(-0.05, +0.05)
+            x *= num_samples
+            x -= num_samples / 2
+            trace = np.random.normal(loc=0, scale=0.05, size=num_samples)
+            trace += 900. / ((x) ** 2 + 1000)
+
+            trace -= min(trace)
+            trace /= max(trace)
+            trace = np.round(trace * 32767).astype(np.int16)
+            return trace
+
         if not self._interferometer_enabled:
             if self.lib.SetPattern(wlm.cSignal1Interferometers,
                                    wlm.cPatternEnable
@@ -370,7 +381,7 @@ class WLM:
                 "Unable to get interferometer pattern: {}".format(ret)
             )
 
-        return np.array(data)
+        return np.array(data).astype(np.int16)
 
     class Switch:
         """ High-Finesse fibre switch controlled by the WLM """
