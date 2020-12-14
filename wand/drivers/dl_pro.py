@@ -90,7 +90,7 @@ class DLPro:
         return response
 
     def get_pzt_voltage(self):
-        voltage_str = self._get(self.target+":dl:pc:voltage-set")
+        voltage_str = self._get(self.target + ":dl:pc:voltage-set")
         try:
             voltage = float(voltage_str)
         except ValueError:
@@ -100,4 +100,4 @@ class DLPro:
         return voltage
 
     def set_pzt_voltage(self, value):
-        return self._set(self.target+":dl:pc:voltage-set", value)
+        return self._set(self.target + ":dl:pc:voltage-set", value)

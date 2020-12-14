@@ -26,7 +26,8 @@ from sipyco.asyncio_tools import atexit_register_coroutine
 
 from wand.drivers.leoni_switch import LeoniSwitch
 from wand.drivers.high_finesse import WLM
-from wand.drivers.osa import OSAs
+from wand.drivers.ni_osa import NiOSA
+from wand.drivers.wlm_osa import WlmOSA
 from wand.tools import (load_config, backup_config, regular_config_backup,
                         get_config_path, WLMMeasurementStatus)
 from wand.server import ControlInterface
@@ -84,7 +85,11 @@ class WandServer:
 
         # connect to hardware
         self.wlm = WLM(args.simulation)
-        self.osas = OSAs(self.config["osas"], args.simulation)
+
+        if self.config.get("osas", "wlm") == "wlm":
+            self.osas = WlmOSA(self.wlm)
+        else:
+            self.osas = NiOSA(self.config["osas"], args.simulation)
 
         self.exp_min = self.wlm.get_exposure_min()
         self.exp_max = self.wlm.get_exposure_max()
@@ -93,8 +98,10 @@ class WandServer:
         if self.config["switch"]["type"] == "internal":
             self.switch = self.wlm.get_switch()
         elif self.config["switch"]["type"] == "leoni":
+            print("sw")
             self.switch = LeoniSwitch(
                 self.config["switch"]["ip"], args.simulation)
+            print(self.switch.get_firmware_rev())
         else:
             raise ValueError("Unrecognised switch type: {}".format(
                 self.config["switch"]["type"]))
@@ -310,7 +317,7 @@ class WandServer:
                 self.executor,
                 self.take_osa_measurement,
                 laser,
-                laser_conf["osa"],
+                laser_conf.get("osa"),
                 meas["get_osa_trace"])
 
             wlm_data, osa = (await asyncio.gather(freq_measurement,
@@ -380,7 +387,9 @@ class WandServer:
     def take_osa_measurement(self, laser, osa, get_osa_trace):
         """ Capture an osa trace """
         if not get_osa_trace:
-            return {}
+            return {"trace": None,
+                    "timestamp": time.time()
+                   }
 
         osa = {"trace": self.osas.get_trace(osa).tolist(),
                "timestamp": time.time()

@@ -1,9 +1,11 @@
 import logging
 import time
+import numpy as np
 from wand.tools import WLMMeasurementStatus
 
 try:  # allow us to run simulations on Linux
-    from ctypes import windll, c_double, c_ushort, c_long, c_bool, byref
+    from ctypes import (windll, c_double, c_ushort, c_long, c_bool, byref,
+                        c_short, POINTER)
 except ImportError:
     pass
 
@@ -116,6 +118,18 @@ class WLM:
         # set to manual measurement control
         self._update_exposure(self._exp_min, block=False)
         self._trigger_single_measurement()
+
+        # get size of interferometer data arrays
+        self._pattern_count = self.lib.GetPatternItemCount(
+            wlm.cSignal1Interferometers)
+        if self._pattern_count == 0:
+            raise WLMException("Error finding the interferometer data length")
+        pattern_size = self.lib.GetPatternItemSize(wlm.cSignal1Interferometers)
+        if pattern_size == 2:
+            self._pattern_dtype = np.int16
+        else:
+            raise WLMException("Unrecognised pattern data size")
+        self._interferometer_enabled = False
 
         logger.info("Connected to " + self.identify())
 
@@ -337,6 +351,22 @@ class WLM:
     def get_switch(self):
         """ :returns: an interface to the WLM integrated switch """
         return self.Switch(self)
+    
+    def get_pattern(self):
+        """ :returns: the interferometer pattern """
+        if self.simulation:
+            return np.zeros(1024)
+        if not self._interferometer_enabled:
+            if self.lib.SetPattern(wlm.cSignal1Interferometers,
+                                   wlm.cPatternEnable
+                                  ) < 0:
+                raise WLMException("Error enabling interferometer export")
+
+        data = (c_short * self._pattern_count)()
+        ret = self.lib.GetPatternData(wlm.cSignal1Interferometers,
+                                      data)
+
+        return np.array(data)
 
     class Switch:
         """ High-Finesse fibre switch controlled by the WLM """
