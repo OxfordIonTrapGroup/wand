@@ -115,9 +115,9 @@ class WandGUI():
 
         # check we're fully connected to the server before processing updates
         if (
-          not self.subscribers[server]["laser_db"]["connected"] or
-          not self.subscribers[server]["freq_db"]["connected"] or
-          not self.subscribers[server]["osa_db"]["connected"]
+            not self.subscribers[server]["laser_db"]["connected"] or
+            not self.subscribers[server]["freq_db"]["connected"] or
+            not self.subscribers[server]["osa_db"]["connected"]
         ):
             return
 

@@ -4,8 +4,7 @@ import numpy as np
 from wand.tools import WLMMeasurementStatus
 
 try:  # allow us to run simulations on Linux
-    from ctypes import (windll, c_double, c_ushort, c_long, c_bool, byref,
-                        c_short, POINTER)
+    from ctypes import windll, c_double, c_ushort, c_long, c_bool, byref, c_short
 except ImportError:
     pass
 
@@ -26,8 +25,8 @@ class WLM:
 
         self.simulation = simulation
         if self.simulation:
-            self._exp_min = [2]*2
-            self._exp_max = [999]*2
+            self._exp_min = [2] * 2
+            self._exp_max = [999] * 2
             self._exposure = [self._exp_min] * 2
             return
 
@@ -98,8 +97,8 @@ class WLM:
             self._exp_min[1] = 2
 
         self._exposure = self._exp_min.copy()
-        self._set_exp = [[lib.GetExposureNum(ch+1, 1),
-                          lib.GetExposureNum(ch+1, 2)] for ch in range(8)]
+        self._set_exp = [[lib.GetExposureNum(ch + 1, 1),
+                          lib.GetExposureNum(ch + 1, 2)] for ch in range(8)]
 
         if 0 in self._exp_min or 0 in self._exp_max:
             raise WLMException("Error finding WLM exposure range")
@@ -111,7 +110,7 @@ class WLM:
             # hook up wait for event mechanism
         if self.lib.Instantiate(wlm.cInstNotification,
                                 wlm.cNotifyInstallWaitEvent,
-                                c_long(max(self._exp_max)+100),  # timeout
+                                c_long(max(self._exp_max) + 100),  # timeout
                                 0) == 0:
             raise WLMException("Error hooking up WLM callbacks")
 
@@ -126,6 +125,7 @@ class WLM:
             raise WLMException("Error finding the interferometer data length")
         pattern_size = self.lib.GetPatternItemSize(wlm.cSignal1Interferometers)
         if pattern_size == 2:
+            self._pattern_max = (2 ** 15) - 1
             self._pattern_dtype = np.int16
         else:
             raise WLMException("Unrecognised pattern data size")
@@ -187,11 +187,11 @@ class WLM:
         max_ccd_changed = -1
         exposure = self._exposure if exposure is None else exposure
         for ccd, exp in enumerate(exposure):
-            if exp == self._set_exp[self.active_switch_ch-1][ccd]:
+            if exp == self._set_exp[self.active_switch_ch - 1][ccd]:
                 continue
-            self._set_exp[self.active_switch_ch-1][ccd] = exp
+            self._set_exp[self.active_switch_ch - 1][ccd] = exp
 
-            if 0 > self.lib.SetExposureNum(self.active_switch_ch, ccd+1, exp):
+            if 0 > self.lib.SetExposureNum(self.active_switch_ch, ccd + 1, exp):
                 raise WLMException("Unable to set WLM exposure time for ccd {}"
                                    " to {} ms".format(ccd, exp))
             max_ccd_changed = ccd
@@ -199,7 +199,7 @@ class WLM:
         if max_ccd_changed == -1:
             return
 
-        event = vars(wlm)["cmiExposureValue{}{}".format(max_ccd_changed+1,
+        event = vars(wlm)["cmiExposureValue{}{}".format(max_ccd_changed + 1,
                                                         self.active_switch_ch)]
         if block:
             self._wait_for_event([event], exposure[max_ccd_changed])
@@ -257,7 +257,7 @@ class WLM:
                                    ": {}".format(ret))
 
             logger.debug("{} ms: {}, current state='{}' ({}, {})".format(
-                1e3*(time.time() - t0),
+                1e3 * (time.time() - t0),
                 ret_str,
                 wlm.event_to_str(event),
                 p_int.value,
@@ -295,7 +295,7 @@ class WLM:
             return WLMMeasurementStatus.ERROR, 0
 
         if freq > 0:
-            return WLMMeasurementStatus.OKAY, freq*1e12
+            return WLMMeasurementStatus.OKAY, freq * 1e12
         elif freq == wlm.ErrBigSignal:
             return WLMMeasurementStatus.OVER_EXPOSED, 0
         elif freq == wlm.ErrLowSignal:
@@ -346,12 +346,12 @@ class WLM:
             logger.error("error getting peak height: {}"
                          .format(wlm.error_to_str(peak)))
             return WLMMeasurementStatus.ERROR, 0
-        return peak/3500.  # to do, figure out what the scale factor should be!
+        return peak / self._pattern_max
 
     def get_switch(self):
         """ :returns: an interface to the WLM integrated switch """
         return self.Switch(self)
-    
+
     def get_pattern(self):
         """ :returns: the interferometer pattern """
         if self.simulation:
@@ -359,12 +359,16 @@ class WLM:
         if not self._interferometer_enabled:
             if self.lib.SetPattern(wlm.cSignal1Interferometers,
                                    wlm.cPatternEnable
-                                  ) < 0:
+                                   ) < 0:
                 raise WLMException("Error enabling interferometer export")
 
         data = (c_short * self._pattern_count)()
         ret = self.lib.GetPatternData(wlm.cSignal1Interferometers,
                                       data)
+        if ret < 0:
+            raise WLMException(
+                "Unable to get interferometer pattern: {}".format(ret)
+            )
 
         return np.array(data)
 
@@ -392,8 +396,9 @@ class WLM:
             ret = self._wlm.lib.SetSwitcherChannel(channel)
             if ret < 0:
                 raise WLMException(
-                    "Unable to set WLM switcher channel to: {}".format(channel,
-                                                                       ret))
+                    "Unable to set WLM switcher channel {}  to: {}".format(
+                        channel, ret)
+                )
             try:
                 self._wlm._wait_for_event([wlm.cmiSwitcherChannel], channel)
             except WLMException as e:

@@ -494,7 +494,7 @@ cFileParameterError = -1
 event_codes = {
     code: name[3:] for name, code in globals().items()
     if name.startswith("cmi")
-    }
+}
 event_codes[0] = "NoEvent"
 
 wavelength_events = [code for event, code in globals().items()
@@ -503,7 +503,7 @@ wavelength_events = [code for event, code in globals().items()
 errors = {
     code: name[7:] for name, code in globals().items()
     if name.startswith("ResERR_")
-    }
+}
 
 
 control_wlm_errors = {flServerStarted: "flServerStarted",

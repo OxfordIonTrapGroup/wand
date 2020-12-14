@@ -20,7 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 from sipyco import pyon
 from sipyco.pc_rpc import Server as RPCServer
 from sipyco.sync_struct import Publisher, Notifier
-from sipyco.common_args import (simple_network_args, bind_address_from_args, 
+from sipyco.common_args import (simple_network_args, bind_address_from_args,
                                 init_logger_from_args, verbosity_args)
 from sipyco.asyncio_tools import atexit_register_coroutine
 
@@ -218,7 +218,7 @@ class WandServer:
                 locked_at = conf["locked_at"]
                 timeout = conf["lock_timeout"]
                 set_point = conf["lock_set_point"]
-                gain = conf["lock_gain"]*poll_time
+                gain = conf["lock_gain"] * poll_time
                 capture_range = conf["lock_capture_range"]
 
                 await asyncio.wait({self.wake_locks[laser].wait()},
@@ -387,9 +387,10 @@ class WandServer:
     def take_osa_measurement(self, laser, osa, get_osa_trace):
         """ Capture an osa trace """
         if not get_osa_trace:
-            return {"trace": None,
-                    "timestamp": time.time()
-                   }
+            return {
+                "trace": None,
+                "timestamp": time.time()
+            }
 
         osa = {"trace": self.osas.get_trace(osa).tolist(),
                "timestamp": time.time()
