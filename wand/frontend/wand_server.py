@@ -98,10 +98,8 @@ class WandServer:
         if self.config["switch"]["type"] == "internal":
             self.switch = self.wlm.get_switch()
         elif self.config["switch"]["type"] == "leoni":
-            print("sw")
             self.switch = LeoniSwitch(
                 self.config["switch"]["ip"], args.simulation)
-            print(self.switch.get_firmware_rev())
         else:
             raise ValueError("Unrecognised switch type: {}".format(
                 self.config["switch"]["type"]))

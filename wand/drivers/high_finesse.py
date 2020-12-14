@@ -355,12 +355,13 @@ class WLM:
     def get_pattern(self):
         """ :returns: the interferometer pattern """
         if self.simulation:
-            return np.zeros(1024)
+            return None
         if not self._interferometer_enabled:
             if self.lib.SetPattern(wlm.cSignal1Interferometers,
                                    wlm.cPatternEnable
                                    ) < 0:
                 raise WLMException("Error enabling interferometer export")
+            self._interferometer_enabled = True
 
         data = (c_short * self._pattern_count)()
         ret = self.lib.GetPatternData(wlm.cSignal1Interferometers,
