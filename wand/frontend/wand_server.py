@@ -308,7 +308,8 @@ class WandServer:
                     self.executor,
                     self.take_freq_osa_measurement,
                     laser,
-                    laser_conf["f_ref"])
+                    laser_conf["f_ref"],
+                    meas["get_osa_trace"])
                 wlm_data, osa = await freq_osa_measurement
 
             else:
@@ -402,7 +403,7 @@ class WandServer:
                }
         return osa
 
-   def take_freq_osa_measurement(self, laser, f0):
+    def take_freq_osa_measurement(self, laser, f0, get_osa_trace):
         """ Get frequency and spectral data from the wlm """
         logger.info("Taking new frequency + spectral measurement for {}"
                     .format(laser))
@@ -428,7 +429,7 @@ class WandServer:
         else:
             osa = {"trace": self.wlm.get_pattern().tolist(),
                    "timestamp": time.time()
-                  }
+                   }
 
         return (freq, peaks), osa
 
