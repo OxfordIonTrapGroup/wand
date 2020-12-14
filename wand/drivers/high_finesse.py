@@ -125,7 +125,6 @@ class WLM:
             raise WLMException("Error finding the interferometer data length")
         pattern_size = self.lib.GetPatternItemSize(wlm.cSignal1Interferometers)
         if pattern_size == 2:
-            self._pattern_max = (2 ** 15) - 1
             self._pattern_dtype = np.int16
         else:
             raise WLMException("Unrecognised pattern data size")
@@ -346,7 +345,7 @@ class WLM:
             logger.error("error getting peak height: {}"
                          .format(wlm.error_to_str(peak)))
             return WLMMeasurementStatus.ERROR, 0
-        return peak / self._pattern_max
+        return peak / 3500.
 
     def get_switch(self):
         """ :returns: an interface to the WLM integrated switch """
