@@ -16,7 +16,7 @@ class OSAException(Exception):
     pass
 
 
-class OSAs:
+class NiOSA:
     """ Interface to one or more Optical Spectrum Analyser """
 
     def __init__(self, osas, simulation=False):
@@ -31,7 +31,7 @@ class OSAs:
         if self.simulation:
             self.f0 = {}
             for osa_name, osa in self.osas.items():
-                self.f0[osa_name] = np.random.uniform(0, 1)*osa["num_samples"]
+                self.f0[osa_name] = np.random.uniform(0, 1) * osa["num_samples"]
             return
 
         try:
@@ -49,7 +49,7 @@ class OSAs:
                     "/{}/{}".format(osa["device"], osa["input_channel"]),
                     "Voltage",
                     PyDAQmx.DAQmx_Val_NRSE,
-                    -osa["v_span"]/2, osa["v_span"]/2,
+                    -osa["v_span"] / 2, osa["v_span"] / 2,
                     PyDAQmx.DAQmx_Val_Volts,
                     None)
 
@@ -99,10 +99,10 @@ class OSAs:
 
         if self.simulation:
             x = np.arange(num_samples) - self.f0[osa] \
-                + np.random.uniform(-0.05, +0.05)*num_samples
+                + np.random.uniform(-0.05, +0.05) * num_samples
             trace = np.random.normal(loc=0, scale=0.05, size=num_samples)
-            trace += 900./((x)**2 + 1000)
-            trace *= self.osas[osa]["v_span"]/2
+            trace += 900. / ((x) ** 2 + 1000)
+            trace *= self.osas[osa]["v_span"] / 2
 
         else:
             task_handle = self.handles[osa]
@@ -130,7 +130,7 @@ class OSAs:
         if self.osas[osa]["downsample"] > 1:
             trace = decimate(trace, self.osas[osa]["downsample"])
 
-        trace /= self.osas[osa]["v_span"]/2
-        trace = np.round(trace*32767).astype(np.int16)
+        trace /= self.osas[osa]["v_span"] / 2
+        trace = np.round(trace * 32767).astype(np.int16)
 
         return trace

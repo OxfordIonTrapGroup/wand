@@ -4,7 +4,7 @@ Wavelength Analysis and Display laser diagnostics suite.
 
 ![WAnD GUI](docs/wand_gui.png)
 
-A WAnD server (an instance of `wand_server`) controls: a wavelength meter; a fibre switch; a set of optical spectrum analysers (OSAs); and, optionally, lasers (for frequency locks). It provides network interfaces that clients can connect to in order to control the server (e.g. schedule wavelength readings, change exposure times, etc) and to receive updates (parameter changes, new frequency data).
+A WAnD server (an instance of `wand_server`) controls: a wavelength meter; a fibre switch; optionally, a set of optical spectrum analysers (OSAs); and, optionally, lasers (for frequency locks). It provides network interfaces that clients can connect to in order to control the server (e.g. schedule wavelength readings, change exposure times, etc) and to receive updates (parameter changes, new frequency data).
 
 WAnD clients, such as the GUI or an ARTIQ experiment, can connect to multiple servers (and, each server can support connections from multiple clients).
 
@@ -22,9 +22,9 @@ From outside Oxford, use Pip to install into an [ARTIQ](https://github.com/m-lab
 
 ## WAnD servers
 
-To start a server run `wand_server -n <name>` where `<name>` is the name of the server.
+To start a server run `wand_server -n <name> -b <backup_dir>` where `<name>` is the name of the server and `<backup_dir>` is the location of a directory that contains backups of the configuration data.
 
-The name parameter is used to locate the configuration file for the server (named `<name>_server_config.pyon`), which should reside in the root WaND directory. If the configuration file isn't found there, `wand_server` will attempt to copy it from the Oxford shared area (to do: make this less Oxford-specific!). If you're running WaND outside Oxford, you need to manually copy the config file to the root wand directory. NB `wand_server` will periodically attempt to back the configuration file up to the Oxford shared area (again, this should be made less Oxford-specific at some point). You can find an example configuration file in the [examples](wand/examples).
+The name parameter is used to locate the configuration file for the server (named `<name>_server_config.pyon`). The first time a server runs on a given machine this file is copied from the backup directory into a local directory. Subsequently, `wand_server` will periodically attempt to backup the local configuration file in the backup directory. You can find an example configuration file in the [examples](wand/examples).
 
 The server can be run in "simulation" mode without hardware access by using the `--simulation` command line argument (use `--help` for a complete list of arguments).
 
@@ -32,9 +32,13 @@ If you get `connection refused` errors when a client tries to connect to the ser
 
 The default server port is `3251`. To control the server (e.g. to lock a laser or configure a lock gain), or list the methods provided by the server, use `artiq_rpctool`.
 
+## OSAs
+
+WAnD currently supports two forms of OSA: the interferometer pattern from wavelength meter; or, one or mote external etalons connected to a NI DAQ card. If no OSA is defined in the configuration file, we use the wlm interferometer data.
+
 ## WAnD GUI
 
-To start a GUI client, run `wand_gui -n <name>` where `<name>` is the name of the client. The client configuration file specifies the layout of the GUI and which servers to connect to.
+To start a GUI client, run `wand_gui -n <name> -b <backup_dir>` where `<name>` is the name of the client. The client configuration file specifies the layout of the GUI and which servers to connect to.
 
 ## Notes
 

@@ -20,6 +20,9 @@ requirements:
     - python >=3.8
   run:
     - python >=3.8
+    - pyqt
+    - pyqtgraph
+    - qasync
     - sipyco
     - numpy
     - scipy

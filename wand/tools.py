@@ -4,9 +4,10 @@ import datetime
 import asyncio
 import shutil
 import logging
+import sys
+from pathlib import Path
 
 from sipyco import pyon
-import wand
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +29,20 @@ class LockException(Exception):
 
 def get_config_path(args, name_suffix=""):
     config_file = "{}{}_config.pyon".format(args.name, name_suffix)
-    wand_dir = os.path.dirname(wand.__file__)
-    config_path = os.path.join(wand_dir, config_file)
+
+    home = str(Path.home())
+    if sys.platform == "win32":
+        data_dir = os.path.join(home, "AppData", "Local", "wand")
+    elif sys.platform == "linux":
+        data_dir = os.path.join(home, ".local", "share", "wand")
+    else:
+        raise Exception("Unsupported platform")
+
+    if not os.path.exists(data_dir):
+        logger.info("Data directory does not exist, creating at {}".format(
+            data_dir))
+        os.makedirs(data_dir)
+    config_path = os.path.join(data_dir, config_file)
 
     if args.backup_dir == "":
         backup_path = ""

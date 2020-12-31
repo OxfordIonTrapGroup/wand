@@ -161,12 +161,12 @@ class LaserDisplay:
             self.wake_loop.set()
 
         else:
-            if self._gui.laser_db[self.laser]["osa"] == "blue":
-                self.colour = "5555ff"
-            elif self._gui.laser_db[self.laser]["osa"] == "red":
+            self.colour = self._gui.laser_db[self.laser].get("display_colour",
+                                                             0x7c7c7c)
+            if self.colour == "red":
                 self.colour = "ff5555"
-            else:
-                self.colour = "7c7c7c"
+            elif self.colour == "blue":
+                self.colour = "5555ff"
 
             self.name.setText(self.display_name,
                               color=self.colour,
@@ -243,9 +243,8 @@ class LaserDisplay:
                                               target_name="control")
                 await self.setConnected(True)
             # to do: cathch specific exceptions
-            except Exception as e:
-                logger.error("Error connecting to server '{}' {}"
-                             .format(self.server, e))
+            except Exception:
+                logger.exception("Error connecting to server '{}'")
                 continue
 
             while not self._gui.win.exit_request.is_set() and self.server:
@@ -293,8 +292,8 @@ class LaserDisplay:
                     continue
 
                 try:
-                    await asyncio.wait_for(self.wake_loop.wait(), next_measurement_in,
-                                           loop=self._gui.loop)
+                    await asyncio.wait_for(self.wake_loop.wait(),
+                                           next_measurement_in)
                 except asyncio.TimeoutError:
                     pass
 
@@ -364,13 +363,13 @@ class LaserDisplay:
         self.update_freq()
 
     def update_osa_trace(self):
-        if self._gui.osa_db[self.laser]["trace"] is None:
+        self.wake_loop.set()  # recalculate when next measurement due
+
+        if self._gui.osa_db[self.laser].get("trace") is None:
             return
 
         trace = np.array(self._gui.osa_db[self.laser]["trace"]) / 32767
         self.osa_curve.setData(trace)
-
-        self.wake_loop.set()  # recalculate when next measurement due
 
     def update_freq(self):
 
@@ -409,8 +408,8 @@ class LaserDisplay:
         self.wake_loop.set()  # recalculate when next measurement due
 
     def update_laser_status(self):
-        locked = self._gui.laser_db[self.laser]["locked"]
-        owner = self._gui.laser_db[self.laser]["lock_owner"]
+        locked = self._gui.laser_db[self.laser].get("locked", False)
+        owner = self._gui.laser_db[self.laser].get("lock_owner", "")
 
         if not locked:
             self.laser_status.setText("unlocked")

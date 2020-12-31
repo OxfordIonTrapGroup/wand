@@ -12,7 +12,7 @@ from sipyco.common_args import init_logger_from_args, verbosity_args
 from sipyco.asyncio_tools import atexit_register_coroutine
 from sipyco.sync_struct import Subscriber
 
-from quamash import QEventLoop
+from qasync import QEventLoop
 from PyQt5 import QtWidgets, QtGui
 import pyqtgraph.dockarea as dock
 
@@ -62,7 +62,7 @@ class WandGUI():
             fh = logging.FileHandler(log_file, mode="wt")
             fh.setLevel(logger.getEffectiveLevel())
             logger.addHandler(fh)
-            logging.getLogger("quamash").addHandler(fh)
+            logging.getLogger("qasync").addHandler(fh)
             sys.excepthook = lambda exc_type, exc_value, exc_traceback: \
                 logger.exception("".join(
                     traceback.format_exception(exc_type,
@@ -115,9 +115,9 @@ class WandGUI():
 
         # check we're fully connected to the server before processing updates
         if (
-          not self.subscribers[server]["laser_db"]["connected"] or
-          not self.subscribers[server]["freq_db"]["connected"] or
-          not self.subscribers[server]["osa_db"]["connected"]
+            not self.subscribers[server]["laser_db"]["connected"] or
+            not self.subscribers[server]["freq_db"]["connected"] or
+            not self.subscribers[server]["osa_db"]["connected"]
         ):
             return
 

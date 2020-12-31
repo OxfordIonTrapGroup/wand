@@ -18,7 +18,7 @@
             "lock_timeout": null,
             "locked": false,
             "locked_at": 0,
-            "osa": "blue"
+            "display_colour": "blue"
         },
         "example_397": {
             "auto_exposure": true,
@@ -36,7 +36,7 @@
             "lock_timeout": null,
             "locked": false,
             "locked_at": 0,
-            "osa": "blue"
+            "display_colour": "blue"
         },
         "example_397_raman": {
             "auto_exposure": true,
@@ -54,7 +54,7 @@
             "lock_timeout": null,
             "locked": false,
             "locked_at": 0,
-            "osa": "blue"
+            "display_colour": "blue"
         },
         "example_850": {
             "auto_exposure": true,
@@ -72,7 +72,7 @@
             "lock_timeout": null,
             "locked": false,
             "locked_at": 0,
-            "osa": "red"
+            "display_colour": "red"
         },
         "example_854": {
             "auto_exposure": true,
@@ -90,7 +90,7 @@
             "lock_timeout": null,
             "locked": false,
             "locked_at": 0,
-            "osa": "red"
+            "display_colour": "red"
         },
         "example_866": {
             "auto_exposure": true,
@@ -108,7 +108,7 @@
             "lock_timeout": null,
             "locked": false,
             "locked_at": 0,
-            "osa": "red"
+            "display_colour": "red"
         },
         "example_HeNe": {
             "auto_exposure": true,
@@ -126,30 +126,10 @@
             "lock_timeout": null,
             "locked": false,
             "locked_at": 0,
-            "osa": "red"
+            "display_colour": "red"
         }
     },
     "name": "example",
-    "osas": {
-        "blue": {
-            "device": "Dev1",
-            "downsample": 10,
-            "input_channel": "ai0",
-            "num_samples": 16000,
-            "sample_rate": 1250000.0,
-            "trigger_channel": "PFI0",
-            "v_span": 2.0
-        },
-        "red": {
-            "device": "Dev1",
-            "downsample": 10,
-            "input_channel": "ai1",
-            "num_samples": 16000,
-            "sample_rate": 1250000.0,
-            "trigger_channel": "PFI2",
-            "v_span": 2.0
-        }
-    },
     "switch": {
         "ip": "10.255.6.147",
         "type": "leoni",

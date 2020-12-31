@@ -20,13 +20,13 @@ from concurrent.futures import ThreadPoolExecutor
 from sipyco import pyon
 from sipyco.pc_rpc import Server as RPCServer
 from sipyco.sync_struct import Publisher, Notifier
-from sipyco.common_args import (simple_network_args, bind_address_from_args, 
+from sipyco.common_args import (simple_network_args, bind_address_from_args,
                                 init_logger_from_args, verbosity_args)
 from sipyco.asyncio_tools import atexit_register_coroutine
 
 from wand.drivers.leoni_switch import LeoniSwitch
 from wand.drivers.high_finesse import WLM
-from wand.drivers.osa import OSAs
+from wand.drivers.ni_osa import NiOSA
 from wand.tools import (load_config, backup_config, regular_config_backup,
                         get_config_path, WLMMeasurementStatus)
 from wand.server import ControlInterface
@@ -84,7 +84,9 @@ class WandServer:
 
         # connect to hardware
         self.wlm = WLM(args.simulation)
-        self.osas = OSAs(self.config["osas"], args.simulation)
+
+        if self.config.get("osas", "wlm") != "wlm":
+            self.osas = NiOSA(self.config["osas"], args.simulation)
 
         self.exp_min = self.wlm.get_exposure_min()
         self.exp_max = self.wlm.get_exposure_max()
@@ -211,7 +213,7 @@ class WandServer:
                 locked_at = conf["locked_at"]
                 timeout = conf["lock_timeout"]
                 set_point = conf["lock_set_point"]
-                gain = conf["lock_gain"]*poll_time
+                gain = conf["lock_gain"] * poll_time
                 capture_range = conf["lock_capture_range"]
 
                 await asyncio.wait({self.wake_locks[laser].wait()},
@@ -301,20 +303,31 @@ class WandServer:
             for ccd, exp in enumerate(exposure):
                 self.wlm.set_exposure(exposure[ccd], ccd)
 
-            freq_measurement = self.loop.run_in_executor(
-                self.executor,
-                self.take_freq_measurement,
-                laser,
-                laser_conf["f_ref"])
-            osa_measurement = self.loop.run_in_executor(
-                self.executor,
-                self.take_osa_measurement,
-                laser,
-                laser_conf["osa"],
-                meas["get_osa_trace"])
+            if laser_conf.get("osas", "wlm") == "wlm":
+                freq_osa_measurement = self.loop.run_in_executor(
+                    self.executor,
+                    self.take_freq_osa_measurement,
+                    laser,
+                    laser_conf["f_ref"],
+                    meas["get_osa_trace"])
+                wlm_data, osa = await freq_osa_measurement
 
-            wlm_data, osa = (await asyncio.gather(freq_measurement,
-                                                  osa_measurement))[:]
+            else:
+                freq_measurement = self.loop.run_in_executor(
+                    self.executor,
+                    self.take_freq_measurement,
+                    laser,
+                    laser_conf["f_ref"])
+
+                osa_measurement = self.loop.run_in_executor(
+                    self.executor,
+                    self.take_osa_measurement,
+                    laser,
+                    laser_conf.get("osa"),
+                    meas["get_osa_trace"])
+
+                wlm_data, osa = (await asyncio.gather(freq_measurement,
+                                                      osa_measurement))[:]
 
             freq, peaks = wlm_data
             self.freq_db[laser] = freq
@@ -380,17 +393,53 @@ class WandServer:
     def take_osa_measurement(self, laser, osa, get_osa_trace):
         """ Capture an osa trace """
         if not get_osa_trace:
-            return {}
+            return {
+                "trace": None,
+                "timestamp": time.time()
+            }
 
         osa = {"trace": self.osas.get_trace(osa).tolist(),
                "timestamp": time.time()
                }
         return osa
 
+    def take_freq_osa_measurement(self, laser, f0, get_osa_trace):
+        """ Get frequency and spectral data from the wlm """
+        logger.info("Taking new frequency + spectral measurement for {}"
+                    .format(laser))
+
+        status, freq = self.wlm.get_frequency()
+        freq = {
+            "freq": freq,
+            "status": int(status),
+            "timestamp": time.time()
+        }
+
+        # make simulation data more interesting!
+        if self.args.simulation:
+            freq["freq"] = f0 + np.random.normal(loc=0, scale=10e6)
+
+        peaks = [self.wlm.get_fringe_peak(ccd) for ccd in range(self.num_ccds)]
+
+        if not get_osa_trace:
+            osa = {
+                "trace": None,
+                "timestamp": time.time()
+            }
+        else:
+            osa = {"trace": self.wlm.get_pattern().tolist(),
+                   "timestamp": time.time()
+                   }
+
+        return (freq, peaks), osa
+
     def save_config_file(self):
-        self.config["lasers"] = self.laser_db.raw_view
-        config_path, _ = get_config_path(self.args, "_server")
-        pyon.store_file(config_path, self.config)
+        try:
+            self.config["lasers"] = self.laser_db.raw_view
+            config_path, _ = get_config_path(self.args, "_server")
+            pyon.store_file(config_path, self.config)
+        except Exception:
+            log.warning("error when trying to save config data")
 
 
 def main():
