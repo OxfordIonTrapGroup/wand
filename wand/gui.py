@@ -402,7 +402,7 @@ class LaserDisplay:
             detuning = "Error"
             colour = "ff9900"
 
-        self.frequency.setText(freq)
+        self.frequency.setText(freq, color=colour)
         self.detuning.setText(detuning, color=colour)
 
         self.wake_loop.set()  # recalculate when next measurement due
