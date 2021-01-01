@@ -175,13 +175,14 @@ class LaserDisplay:
             try:
                 exp_min = await self.client.get_min_exposures()
                 exp_max = await self.client.get_max_exposures()
+                num_ccds = await self.client.get_num_ccds()
                 polls = await self.client.get_poll_times()
                 (self.poll_time, self.fast_poll_time) = polls
             except (OSError, AttributeError):
                 self.setConnected(False)
                 return
 
-            for ccd, exposure in enumerate(self.exposure):
+            for ccd, exposure in enumerate(self.exposure[:num_ccds]):
                 exposure.setRange(exp_min[ccd], exp_max[ccd])
                 exposure.setValue(
                     self._gui.laser_db[self.laser]["exposure"][ccd])
@@ -205,7 +206,7 @@ class LaserDisplay:
             self.auto_exposure.blockSignals(False)
             self.f_ref.blockSignals(False)
 
-            for exp in self.exposure:
+            for exp in self.exposure[:num_ccds]:
                 exp.setEnabled(True)
                 exp.blockSignals(False)
 
