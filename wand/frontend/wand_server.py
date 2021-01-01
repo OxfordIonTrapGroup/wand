@@ -303,7 +303,7 @@ class WandServer:
             for ccd, exp in enumerate(exposure):
                 self.wlm.set_exposure(exposure[ccd], ccd)
 
-            if laser_conf.get("osas", "wlm") == "wlm":
+            if laser_conf.get("osa", "wlm") == "wlm":
                 freq_osa_measurement = self.loop.run_in_executor(
                     self.executor,
                     self.take_freq_osa_measurement,
