@@ -10,6 +10,13 @@ except ImportError:
 
 from wand.drivers import wlm_constants as wlm
 
+# These wavelength ranges do not match those in the documentation, but are
+# extracted from the one multi-range WS6 we have access to
+WavelengthRange = {
+    "VIS_NIR": 6,
+    "IR": 7
+}
+
 logger = logging.getLogger(__name__)
 
 
@@ -101,10 +108,11 @@ class WLM:
         else:
             raise NotImplementedError("Number of CCDs not supported")
 
-
         self._exposure = self._exp_min.copy()
         self._set_exp = [[lib.GetExposureNum(ch + 1, 1),
                           lib.GetExposureNum(ch + 1, 2)] for ch in range(8)]
+
+        self._wavelength_range = None
 
         if 0 in self._exp_min or 0 in self._exp_max:
             raise WLMException("Error finding WLM exposure range")
@@ -196,6 +204,8 @@ class WLM:
                 continue
             self._set_exp[self.active_switch_ch - 1][ccd] = exp
 
+            print("update exposure", ccd, exp)
+
             if 0 > self.lib.SetExposureNum(self.active_switch_ch, ccd + 1, exp):
                 raise WLMException("Unable to set WLM exposure time for ccd {}"
                                    " to {} ms".format(ccd, exp))
@@ -209,6 +219,22 @@ class WLM:
         if block:
             self._wait_for_event([event], exposure[max_ccd_changed])
 
+    def _update_wavelength_range(self):
+        """ Updates the selected WLM wavelength range
+        """
+        if self._wavelength_range is None:
+            # Use the default range
+            return
+
+        ret = self.lib.SetRange(self._wavelength_range)
+        # FIXME/WTF: the WS6 gives a return code of -3 (invalid value)
+        # after calling this function with a different wavelength range than
+        # the first call on the first channel, however the range changes
+        # successfully
+        # if ret < 0:
+        #     raise WLMException("Unable to set WLM range to {}".format(
+        #         self._wavelength_range))
+
     def _get_fresh_data(self):
         """ Gets a "fresh" wavelength measurement, guaranteed to occur after
         this method was called.
@@ -219,6 +245,7 @@ class WLM:
         pipeline, we set the exposure time to minimum during the "dummy"
         measurements.
         """
+        self._update_wavelength_range()
         self._update_exposure()  # synchronise WLM with self._exposure
         for pipeline_stage in range(3):
             self._trigger_single_measurement()
@@ -336,6 +363,19 @@ class WLM:
         if ccd not in range(self._num_ccds):
             raise WLMException("Invalid ccd: {}".format(ccd))
         self._exposure[ccd] = exposure
+
+    def set_wavelength_range(self, range_):
+        """ Sets the wavelength range for the active channel
+
+        :param range_: wavelength range as a string (indexes in WavelengthRange
+        global)
+        """
+
+        try:
+            self._wavelength_range = WavelengthRange[range_]
+        except KeyError:
+            raise WLMException("Invalid wavelength range \'{}\' - valid choices are {}"
+                               .format(range_, ",".join(WavelengthRange.keys())))
 
     def get_fringe_peak(self, ccd):
         """ Returns the peak height of the interference pattern normalized
