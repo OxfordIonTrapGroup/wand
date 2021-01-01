@@ -35,6 +35,8 @@ def get_config_path(args, name_suffix=""):
         data_dir = os.path.join(home, "AppData", "Local", "wand")
     elif sys.platform == "linux":
         data_dir = os.path.join(home, ".local", "share", "wand")
+    elif sys.platform == "darwin":
+        data_dir = os.path.join(home, "Library", "Preferences", "wand")
     else:
         raise Exception("Unsupported platform")
 
