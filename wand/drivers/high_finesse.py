@@ -380,7 +380,8 @@ class WLM:
             self._interferometer_enabled = True
 
         data = (c_short * self._pattern_count)()
-        ret = self.lib.GetPatternData(wlm.cSignal1Interferometers,
+        ret = self.lib.GetPatternDataNum(self.active_switch_ch,
+                                      wlm.cSignal1Interferometers,
                                       data)
         if ret < 0:
             raise WLMException(
