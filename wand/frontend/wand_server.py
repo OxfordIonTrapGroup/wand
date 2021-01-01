@@ -297,6 +297,13 @@ class WandServer:
                 meas["get_osa_trace"] = True
                 active_laser = meas["laser"]
 
+                # We only need to change the range after switching channels
+                try:
+                    range_ = laser_conf.get("wavelength_range")
+                    self.wlm.set_wavelength_range(range_)
+                except KeyError:
+                    pass
+
                 await asyncio.sleep(self.config["switch"]["dead_time"])
 
             exposure = laser_conf["exposure"]
