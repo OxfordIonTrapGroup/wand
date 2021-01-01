@@ -21,15 +21,6 @@ class WLMException(Exception):
 class WLM:
     """" Driver for HighFinesse WaveLength Meters (WLM) """
     def __init__(self, simulation):
-        self._num_ccds = 2
-
-        self.simulation = simulation
-        if self.simulation:
-            self._exp_min = [2] * 2
-            self._exp_max = [999] * 2
-            self._exposure = [self._exp_min] * 2
-            return
-
         self.active_switch_ch = 1
 
         try:
@@ -77,24 +68,39 @@ class WLM:
             raise WLMException("Unrecognised WLM model: {}".format(
                 self.wlm_ve))
 
+        # WS/6 have 1, WS/7 & WS/8 & WS/U have 2
+        self._num_ccds = 2 if self.wlm_model >= 7 else 1
+
+        self.simulation = simulation
+        if self.simulation:
+            self._exp_min = [2]*self._num_ccds
+            self._exp_max = [999]*self._num_ccds
+            self._exposure = [self._exp_min] * self._num_ccds
+            return
+
+
         if lib.GetOperationState(0) == wlm.cStop:
             self.set_measurement_enabled(True)
 
         if lib.SetSwitcherMode(0) < 0:  # disable automatic channel switching
             logger.warning("Unable to disable automatic WLM switching")
 
-        # fixme: hard-code that we have two ccds for now
-        # fix me: setting exp 2 to exp_min gives errors. Works fine via the GUI
-        self._exp_min = [lib.GetExposureRange(wlm.cExpoMin),
-                         lib.GetExposureRange(wlm.cExpo2Min)
-                         ]
-        self._exp_max = [lib.GetExposureRange(wlm.cExpoMax),
-                         lib.GetExposureRange(wlm.cExpo2Max)
-                         ]
+        if self._num_ccds == 1:
+            self._exp_min = [lib.GetExposureRange(wlm.cExpoMin)]
+            self._exp_max = [lib.GetExposureRange(wlm.cExpoMax)]
+        elif self._num_ccds == 2:
+            self._exp_min = [lib.GetExposureRange(wlm.cExpoMin),
+                             lib.GetExposureRange(wlm.cExpo2Min)
+                             ]
+            self._exp_max = [lib.GetExposureRange(wlm.cExpoMax),
+                             lib.GetExposureRange(wlm.cExpo2Max)
+                             ]
+            # fix me: setting exp 2 to exp_min gives errors. Works fine via the GUI
+            if self._exp_min[1] == 0:
+                self._exp_min[1] = 2
+        else:
+            raise NotImplementedError("Number of CCDs not supported")
 
-        # fixme: hack to work around bug in WLM software
-        if self._exp_min[1] == 0:
-            self._exp_min[1] = 2
 
         self._exposure = self._exp_min.copy()
         self._set_exp = [[lib.GetExposureNum(ch + 1, 1),
