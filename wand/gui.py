@@ -162,7 +162,7 @@ class LaserDisplay:
 
         else:
             self.colour = self._gui.laser_db[self.laser].get("display_colour",
-                                                             0x7c7c7c)
+                                                             "7c7c7c")
             if self.colour == "red":
                 self.colour = "ff5555"
             elif self.colour == "blue":
