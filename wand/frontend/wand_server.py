@@ -82,20 +82,17 @@ class WandServer:
         self.lasers = self.config["lasers"].keys()
 
         for laser in self.lasers:
-            self.config["lasers"][laser]["lock_ready"] = False
-        
+            self.config["lasers"][laser]["lock_ready"] = False       
 
         # connect to hardware
-        self.wlm = WLM(args.simulation)
-        
+        self.wlm = WLM(args.simulation)       
 
         if self.config.get("osas", "wlm") != "wlm":
             if self.config["osas"] == "dual_sfp":
                 self.osas = DMM6500(self.config["osas"])
             else:
                 self.osas = NiOSA(self.config["osas"], args.simulation)
-            
-            
+                       
         self.exp_min = self.wlm.get_exposure_min()
         self.exp_max = self.wlm.get_exposure_max()
         self.num_ccds = self.wlm.get_num_ccds()
@@ -186,10 +183,8 @@ class WandServer:
         atexit.register(backup_config, self.args, "_server")
 
         logger.info("server started")
-        self.running = True
-        
+        self.running = True       
         loop.run_forever()
-   
 
     async def lock_task(self, laser):
         conf = self.laser_db.raw_view[laser]
@@ -222,6 +217,7 @@ class WandServer:
                     await self.wake_locks[laser].wait()
                     self.wake_locks[laser].clear()
                     continue
+                    
                 poll_time = conf["lock_poll_time"]
                 locked_at = conf["locked_at"]
                 timeout = conf["lock_timeout"]
@@ -291,6 +287,7 @@ class WandServer:
         active_laser = ""
 
         while True:
+            
             if self.queue == []:
                 self.measurements_queued.clear()
             await self.measurements_queued.wait()
@@ -404,7 +401,7 @@ class WandServer:
 
     def take_osa_measurement(self, laser, osa, get_osa_trace):
         """ Capture an osa trace """
-        if not get_osa_trace: 
+        if not get_osa_trace:
             return {
                 "trace": None,
                 "timestamp": time.time()
@@ -412,6 +409,7 @@ class WandServer:
         osa = {"trace": self.osas.get_trace(osa).tolist(),
                "timestamp": time.time()
                }
+        
         return osa
 
     def take_freq_osa_measurement(self, laser, f0, get_osa_trace):
@@ -451,8 +449,6 @@ class WandServer:
             pyon.store_file(config_path, self.config)
         except Exception:
             log.warning("error when trying to save config data")
-    
-
 
 
 def main():
@@ -461,5 +457,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
-    
+    main()   
