@@ -39,7 +39,7 @@ class DoubleLeoniSwitch:
         return self._num_channels
 
     def set_active_channel(self, channel):
-        """ Sets the active channel.
+        """ Sets the active channel of switch in range while setting the other to the last channel.
 
         :param channel: the channel number to select, not zero-indexed
         """
@@ -55,7 +55,7 @@ class DoubleLeoniSwitch:
             self.sock1.send("ch{}\r\n".format(8).encode())
 
     def get_active_channel(self):
-        """ Returns the active channel number
+        """ Returns the active channel number as a list including both switches
         :return: the active channel, not zero-indexed
         """
         if self.simulation:
