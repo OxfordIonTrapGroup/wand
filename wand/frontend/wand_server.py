@@ -82,10 +82,10 @@ class WandServer:
         self.lasers = self.config["lasers"].keys()
 
         for laser in self.lasers:
-            self.config["lasers"][laser]["lock_ready"] = False       
+            self.config["lasers"][laser]["lock_ready"] = False   
 
         # connect to hardware
-        self.wlm = WLM(args.simulation)       
+        self.wlm = WLM(args.simulation)
 
         if self.config.get("osas", "wlm") != "wlm":
             if self.config["osas"] == "dual_sfp":
@@ -183,7 +183,7 @@ class WandServer:
         atexit.register(backup_config, self.args, "_server")
 
         logger.info("server started")
-        self.running = True       
+        self.running = True
         loop.run_forever()
 
     async def lock_task(self, laser):
@@ -217,7 +217,7 @@ class WandServer:
                     await self.wake_locks[laser].wait()
                     self.wake_locks[laser].clear()
                     continue
-                    
+
                 poll_time = conf["lock_poll_time"]
                 locked_at = conf["locked_at"]
                 timeout = conf["lock_timeout"]
@@ -287,7 +287,7 @@ class WandServer:
         active_laser = ""
 
         while True:
-            
+
             if self.queue == []:
                 self.measurements_queued.clear()
             await self.measurements_queued.wait()
@@ -406,10 +406,10 @@ class WandServer:
                 "trace": None,
                 "timestamp": time.time()
             }
+
         osa = {"trace": self.osas.get_trace(osa).tolist(),
                "timestamp": time.time()
                }
-        
         return osa
 
     def take_freq_osa_measurement(self, laser, f0, get_osa_trace):
@@ -457,4 +457,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()   
+    main()
