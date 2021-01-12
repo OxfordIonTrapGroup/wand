@@ -25,8 +25,10 @@ from sipyco.common_args import (simple_network_args, bind_address_from_args,
 from sipyco.asyncio_tools import atexit_register_coroutine
 
 from wand.drivers.leoni_switch import LeoniSwitch
+from wand.drivers.leoni_doubleswitch import DoubleLeoniSwitch
 from wand.drivers.high_finesse import WLM
 from wand.drivers.ni_osa import NiOSA
+from wand.drivers.dual_SFP_OSA import DMM6500
 from wand.tools import (load_config, backup_config, regular_config_backup,
                         get_config_path, WLMMeasurementStatus)
 from wand.server import ControlInterface
@@ -81,13 +83,19 @@ class WandServer:
 
         for laser in self.lasers:
             self.config["lasers"][laser]["lock_ready"] = False
+        
 
         # connect to hardware
         self.wlm = WLM(args.simulation)
+        
 
         if self.config.get("osas", "wlm") != "wlm":
-            self.osas = NiOSA(self.config["osas"], args.simulation)
-
+            if self.config["osas"] == "dual_sfp":
+                self.osas = DMM6500(self.config["osas"])
+            else:
+                self.osas = NiOSA(self.config["osas"], args.simulation)
+            
+            
         self.exp_min = self.wlm.get_exposure_min()
         self.exp_max = self.wlm.get_exposure_max()
         self.num_ccds = self.wlm.get_num_ccds()
@@ -95,8 +103,12 @@ class WandServer:
         if self.config["switch"]["type"] == "internal":
             self.switch = self.wlm.get_switch()
         elif self.config["switch"]["type"] == "leoni":
-            self.switch = LeoniSwitch(
-                self.config["switch"]["ip"], args.simulation)
+            if self.config["switch"].get("double","single") =="double":
+                self.switch = DoubleLeoniSwitch(
+                    self.config["switch"]["ip"], args.simulation)
+            else:
+                self.switch = LeoniSwitch(
+                    self.config["switch"]["ip"], args.simulation)
         else:
             raise ValueError("Unrecognised switch type: {}".format(
                 self.config["switch"]["type"]))
@@ -175,7 +187,9 @@ class WandServer:
 
         logger.info("server started")
         self.running = True
+        
         loop.run_forever()
+   
 
     async def lock_task(self, laser):
         conf = self.laser_db.raw_view[laser]
@@ -208,7 +222,6 @@ class WandServer:
                     await self.wake_locks[laser].wait()
                     self.wake_locks[laser].clear()
                     continue
-
                 poll_time = conf["lock_poll_time"]
                 locked_at = conf["locked_at"]
                 timeout = conf["lock_timeout"]
@@ -278,7 +291,6 @@ class WandServer:
         active_laser = ""
 
         while True:
-
             if self.queue == []:
                 self.measurements_queued.clear()
             await self.measurements_queued.wait()
@@ -392,12 +404,11 @@ class WandServer:
 
     def take_osa_measurement(self, laser, osa, get_osa_trace):
         """ Capture an osa trace """
-        if not get_osa_trace:
+        if not get_osa_trace: 
             return {
                 "trace": None,
                 "timestamp": time.time()
             }
-
         osa = {"trace": self.osas.get_trace(osa).tolist(),
                "timestamp": time.time()
                }
@@ -440,6 +451,8 @@ class WandServer:
             pyon.store_file(config_path, self.config)
         except Exception:
             log.warning("error when trying to save config data")
+    
+
 
 
 def main():
@@ -449,3 +462,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
