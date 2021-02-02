@@ -24,9 +24,9 @@ from sipyco.common_args import (simple_network_args, bind_address_from_args,
                                 init_logger_from_args, verbosity_args)
 from sipyco.asyncio_tools import atexit_register_coroutine
 
-from wand.drivers.leoni_switch import LeoniSwitch
+from wand.drivers.DeviceManager import driver_importer
+
 from wand.drivers.high_finesse import WLM
-from wand.drivers.ni_osa import NiOSA
 from wand.tools import (load_config, backup_config, regular_config_backup,
                         get_config_path, WLMMeasurementStatus)
 from wand.server import ControlInterface
@@ -78,6 +78,8 @@ class WandServer:
 
         self.config = load_config(args, "_server")
         self.lasers = self.config["lasers"].keys()
+        
+        self.devices = devices = driver_importer(self.config)
 
         for laser in self.lasers:
             self.config["lasers"][laser]["lock_ready"] = False
@@ -85,21 +87,13 @@ class WandServer:
         # connect to hardware
         self.wlm = WLM(args.simulation)
 
-        if self.config.get("osas", "wlm") != "wlm":
-            self.osas = NiOSA(self.config["osas"], args.simulation)
+        self.osas = devices.get_driver('OSA', args.simulation)
 
         self.exp_min = self.wlm.get_exposure_min()
         self.exp_max = self.wlm.get_exposure_max()
         self.num_ccds = self.wlm.get_num_ccds()
-
-        if self.config["switch"]["type"] == "internal":
-            self.switch = self.wlm.get_switch()
-        elif self.config["switch"]["type"] == "leoni":
-            self.switch = LeoniSwitch(
-                self.config["switch"]["ip"], args.simulation)
-        else:
-            raise ValueError("Unrecognised switch type: {}".format(
-                self.config["switch"]["type"]))
+        
+        self.switch = devices.get_driver('switch', args.simulation)
 
         # measurement queue, processed by self.measurement_task
         self.measurement_ids = task_id_generator()
