@@ -175,7 +175,7 @@ class LaserDisplay:
             try:
                 exp_min = await self.client.get_min_exposures()
                 exp_max = await self.client.get_max_exposures()
-                num_ccds = await self.client.get_num_ccds()
+                num_ccds = await self.client.get_num_wlm_ccds()
                 polls = await self.client.get_poll_times()
                 (self.poll_time, self.fast_poll_time) = polls
             except (OSError, AttributeError):
