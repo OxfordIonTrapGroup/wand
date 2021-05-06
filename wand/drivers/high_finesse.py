@@ -73,7 +73,7 @@ class WLM:
 
         if self.wlm_model < 5 or self.wlm_model > 8:
             raise WLMException("Unrecognised WLM model: {}".format(
-                self.wlm_ve))
+                self.wlm_model))
 
         # WS/6 have 1, WS/7 & WS/8 & WS/U have 2
         self._num_ccds = 2 if self.wlm_model >= 7 else 1
