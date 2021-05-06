@@ -204,8 +204,6 @@ class WLM:
                 continue
             self._set_exp[self.active_switch_ch - 1][ccd] = exp
 
-            print("update exposure", ccd, exp)
-
             if 0 > self.lib.SetExposureNum(self.active_switch_ch, ccd + 1, exp):
                 raise WLMException("Unable to set WLM exposure time for ccd {}"
                                    " to {} ms".format(ccd, exp))
