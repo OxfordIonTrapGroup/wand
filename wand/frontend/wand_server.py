@@ -301,7 +301,7 @@ class WandServer:
                 try:
                     range_ = laser_conf.get("wavelength_range")
                     self.wlm.set_wavelength_range(range_)
-                except KeyError:
+                except WLMException:
                     pass
 
                 await asyncio.sleep(self.config["switch"]["dead_time"])
