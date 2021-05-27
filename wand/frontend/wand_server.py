@@ -25,7 +25,7 @@ from sipyco.common_args import (simple_network_args, bind_address_from_args,
 from sipyco.asyncio_tools import atexit_register_coroutine
 
 from wand.drivers.leoni_switch import LeoniSwitch
-from wand.drivers.high_finesse import WLM
+from wand.drivers.high_finesse import WLM, WLMException
 from wand.drivers.ni_osa import NiOSA
 from wand.tools import (load_config, backup_config, regular_config_backup,
                         get_config_path, WLMMeasurementStatus)
@@ -301,7 +301,7 @@ class WandServer:
                 try:
                     range_ = laser_conf.get("wavelength_range")
                     self.wlm.set_wavelength_range(range_)
-                except KeyError:
+                except WLMException:
                     pass
 
                 await asyncio.sleep(self.config["switch"]["dead_time"])
