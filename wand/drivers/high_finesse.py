@@ -118,7 +118,7 @@ class WLM:
             raise WLMException("Error finding WLM exposure range")
 
         for channel in range(8):  # manual exposure
-            if lib.SetExposureModeNum(channel + 1, 0) < 0:
+            if lib.SetExposureModeNum(channel + 1, 0) < 0 and channel == 0:
                 logger.warning("Error setting WLM exposure mode")
 
             # hook up wait for event mechanism
