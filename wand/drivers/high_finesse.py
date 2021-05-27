@@ -111,9 +111,6 @@ class WLM:
 
         self._wavelength_range = None
 
-        if 0 in self._exp_min or 0 in self._exp_max:
-            raise WLMException("Error finding WLM exposure range")
-
         for channel in range(8):  # manual exposure
             if lib.SetExposureModeNum(channel + 1, 0) < 0:
                 logger.warning("Error setting WLM exposure mode")
@@ -337,7 +334,7 @@ class WLM:
         # HACK! see issue #41
         # 1ms exposures don't seem to work, so treat 1ms as 0ms
         if self._num_ccds == 2 and self._exp_min[1] == 0:
-            return [self._exp_min, 1]
+            return [self._exp_min[0], 1]
         return self._exp_min
 
     def get_exposure_max(self):
