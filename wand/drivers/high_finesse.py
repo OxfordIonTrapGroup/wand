@@ -80,16 +80,21 @@ class WLM:
 
         self.simulation = simulation
         if self.simulation:
-            self._exp_min = [2]*self._num_ccds
-            self._exp_max = [999]*self._num_ccds
+            self._exp_min = [2] * self._num_ccds
+            self._exp_max = [999] * self._num_ccds
             self._exposure = [self._exp_min] * self._num_ccds
+            self._num_channels = 8
             return
 
+        self._num_channels = lib.GetChannelsCount(0)
+        if self._num_channels < 0:
+            raise WLMException("Unable to determine number of WLM channels")
 
         if lib.GetOperationState(0) == wlm.cStop:
             self.set_measurement_enabled(True)
 
-        if lib.SetSwitcherMode(0) < 0:  # disable automatic channel switching
+        if self._num_channels > 1 and \
+           lib.SetSwitcherMode(0) < 0:  # disable automatic channel switching
             logger.warning("Unable to disable automatic WLM switching")
 
         if self._num_ccds == 1:
@@ -110,15 +115,16 @@ class WLM:
 
         self._exposure = self._exp_min.copy()
         self._set_exp = [[lib.GetExposureNum(ch + 1, 1),
-                          lib.GetExposureNum(ch + 1, 2)] for ch in range(8)]
+                          lib.GetExposureNum(ch + 1, 2)]
+                         for ch in range(self._num_channels)]
 
         self._wavelength_range = None
 
         if 0 in self._exp_min or 0 in self._exp_max:
             raise WLMException("Error finding WLM exposure range")
 
-        for channel in range(8):  # manual exposure
-            if lib.SetExposureModeNum(channel + 1, 0) < 0 and channel == 0:
+        for channel in range(self._num_channels):  # manual exposure
+            if lib.SetExposureModeNum(channel + 1, 0) < 0:
                 logger.warning("Error setting WLM exposure mode")
 
             # hook up wait for event mechanism
@@ -224,7 +230,7 @@ class WLM:
             # Use the default range
             return
 
-        ret = self.lib.SetRange(self._wavelength_range)
+        self.lib.SetRange(self._wavelength_range)
         # FIXME/WTF: the WS6 gives a return code of -3 (invalid value)
         # after calling this function with a different wavelength range than
         # the first call on the first channel, however the range changes
@@ -419,8 +425,8 @@ class WLM:
 
         data = (c_short * self._pattern_count)()
         ret = self.lib.GetPatternDataNum(self.active_switch_ch,
-                                      wlm.cSignal1Interferometers,
-                                      data)
+                                         wlm.cSignal1Interferometers,
+                                         data)
         if ret < 0:
             raise WLMException(
                 "Unable to get interferometer pattern: {}".format(ret)
@@ -435,14 +441,14 @@ class WLM:
 
         def get_num_channels(self):
             """ Returns the number of channels on the switch """
-            return 8
+            return self._wlm._num_channels
 
         def set_active_channel(self, channel):
             """ Sets the active channel.
 
             :param channel: the channel number to select, not zero-indexed
             """
-            if channel < 1 or channel > 8:
+            if channel < 1 or channel > self._wlm._num_channels:
                 raise WLMException("Invalid WLM switch channel number")
 
             self._wlm.active_switch_ch = channel
@@ -467,7 +473,7 @@ class WLM:
             if self._wlm.simulation:
                 return 1
             channel = self._wlm.lib.GetSwitcherChannel(0)
-            if channel < 0 or channel > 8:
+            if channel < 0 or channel > self._wlm._num_channels:
                 raise WLMException("Unable to query active WLM switcher "
                                    "channel")
             return channel
