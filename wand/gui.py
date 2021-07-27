@@ -6,7 +6,7 @@ import functools
 
 import pyqtgraph as pg
 import pyqtgraph.dockarea as dock
-from PyQt5 import QtGui
+from PyQt5 import QtWidgets
 
 from sipyco.pc_rpc import AsyncioClient as RPCClient
 
@@ -51,33 +51,33 @@ class LaserDisplay:
         self.osa.showGrid(y=True)
         self.osa_curve = self.osa.plot(pen='y', color=self.colour)
 
-        self.fast_mode = QtGui.QCheckBox("Fast mode")
-        self.auto_exposure = QtGui.QCheckBox("Auto expose")
+        self.fast_mode = QtWidgets.QCheckBox("Fast mode")
+        self.auto_exposure = QtWidgets.QCheckBox("Auto expose")
 
-        self.exposure = [QtGui.QSpinBox() for _ in range(2)]
+        self.exposure = [QtWidgets.QSpinBox() for _ in range(2)]
         for idx in range(2):
             self.exposure[idx].setSuffix(" ms")
             self.exposure[idx].setRange(0, 0)
 
-        self.laser_status = QtGui.QLineEdit()
+        self.laser_status = QtWidgets.QLineEdit()
         self.laser_status.setReadOnly(True)
 
-        self.f_ref = QtGui.QDoubleSpinBox()
+        self.f_ref = QtWidgets.QDoubleSpinBox()
         self.f_ref.setSuffix(" THz")
         self.f_ref.setDecimals(7)
         self.f_ref.setSingleStep(1e-6)
         self.f_ref.setRange(0., 1000.)
 
         # context menu
-        self.menu = QtGui.QMenu()
-        self.ref_editable = QtGui.QAction("Enable reference changes",
+        self.menu = QtWidgets.QMenu()
+        self.ref_editable = QtWidgets.QAction("Enable reference changes",
                                           self.dock)
         self.ref_editable.setCheckable(True)
         self.menu.addAction(self.ref_editable)
 
         for label in [self.detuning, self.name, self.frequency, self.f_ref]:
             label.contextMenuEvent = lambda ev: self.menu.popup(
-                QtGui.QCursor.pos())
+                QtWidgets.QCursor.pos())
             label.mouseReleaseEvent = lambda ev: None
 
         # layout GUI
@@ -93,10 +93,10 @@ class LaserDisplay:
         self.dock.addWidget(self.fast_mode, row=1, col=1)
         self.dock.addWidget(self.auto_exposure, row=2, col=1)
 
-        self.dock.addWidget(QtGui.QLabel("Reference"), row=1, col=2)
-        self.dock.addWidget(QtGui.QLabel("Exp 0"), row=1, col=3)
-        self.dock.addWidget(QtGui.QLabel("Exp 1"), row=1, col=4)
-        self.dock.addWidget(QtGui.QLabel("Status"), row=1, col=5)
+        self.dock.addWidget(QtWidgets.QLabel("Reference"), row=1, col=2)
+        self.dock.addWidget(QtWidgets.QLabel("Exp 0"), row=1, col=3)
+        self.dock.addWidget(QtWidgets.QLabel("Exp 1"), row=1, col=4)
+        self.dock.addWidget(QtWidgets.QLabel("Status"), row=1, col=5)
 
         self.dock.addWidget(self.f_ref, row=2, col=2)
         self.dock.addWidget(self.exposure[0], row=2, col=3)
