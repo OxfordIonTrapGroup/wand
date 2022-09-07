@@ -223,7 +223,7 @@ class WandServer:
                 self.wake_locks[laser].clear()
 
                 if timeout is not None and time.time() > (locked_at + timeout):
-                    logger.info("'{}'' lock timed out".format(laser))
+                    logger.info("'{}' lock timed out".format(laser))
                     self.control_interface.unlock(laser, conf["lock_owner"])
                     await asyncio.sleep(0)
                     continue
