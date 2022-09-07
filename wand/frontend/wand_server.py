@@ -215,6 +215,8 @@ class WandServer:
                 set_point = conf["lock_set_point"]
                 gain = conf["lock_gain"] * poll_time
                 capture_range = conf["lock_capture_range"]
+                v_pzt_max = conf.get("v_pzt_max", 100)
+                v_pzt_min = conf.get("v_pzt_min", 25)
 
                 await asyncio.wait({self.wake_locks[laser].wait()},
                                    timeout=poll_time)
@@ -250,8 +252,16 @@ class WandServer:
                     v_pzt = iface.get_pzt_voltage()
                     v_pzt -= V_error
 
-                    if v_pzt > 100 or v_pzt < 25:
-                        logger.warning("'{}'' lock railed".format(laser))
+                    if v_pzt > v_pzt_max or v_pzt < v_pzt_min:
+                        logger.warning(
+                            "'{}'' lock railed, piezo voltage: {:.2f}V outside range {} - {}V"
+                            .format(
+                                laser,
+                                v_pzt,
+                                v_pzt_min,
+                                v_pzt_max,
+                            )
+                        )
                         self.control_interface.unlock(laser,
                                                       conf["lock_owner"])
                         await asyncio.sleep(0)
