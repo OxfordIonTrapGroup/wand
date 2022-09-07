@@ -239,7 +239,7 @@ class WandServer:
                 V_error = f_error * gain
 
                 if abs(f_error) > capture_range:
-                    logger.warning("'{}'' outside capture range".format(laser))
+                    logger.warning("'{}' outside capture range".format(laser))
                     self.control_interface.unlock(laser, conf["lock_owner"])
                     await asyncio.sleep(0)
                     continue
@@ -254,7 +254,7 @@ class WandServer:
 
                     if v_pzt > v_pzt_max or v_pzt < v_pzt_min:
                         logger.warning(
-                            "'{}'' lock railed, piezo voltage: {:.2f}V outside range {} - {}V"
+                            "'{}' lock railed, piezo voltage: {:.2f}V outside range {} - {}V"
                             .format(
                                 laser,
                                 v_pzt,
