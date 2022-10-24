@@ -35,16 +35,16 @@ class LaserDisplay:
         self.layout = pg.GraphicsLayoutWidget(border=(80, 80, 80))
 
         # create widgets
-        self.colour = "ffffff"  # will be set later depending on laser colour
+        self.colour = "#FFFFFF"  # will be set later depending on laser colour
 
         self.detuning = pg.LabelItem("")
-        self.detuning.setText("-", color="ffffff", size="64pt")
+        self.detuning.setText("-", color="#FFFFFF", size="64pt")
 
         self.frequency = pg.LabelItem("")
-        self.frequency.setText("-", color="ffffff", size="12pt")
+        self.frequency.setText("-", color="#FFFFFF", size="12pt")
 
         self.name = pg.LabelItem("")
-        self.name.setText(display_name, color="ffffff", size="32pt")
+        self.name.setText(display_name, color="#FFFFFF", size="32pt")
 
         self.osa = pg.PlotItem()
         self.osa.hideAxis('bottom')
@@ -162,11 +162,11 @@ class LaserDisplay:
 
         else:
             self.colour = self._gui.laser_db[self.laser].get("display_colour",
-                                                             "7c7c7c")
+                                                             "#7C7C7C")
             if self.colour == "red":
-                self.colour = "ff5555"
+                self.colour = "#FF5555"
             elif self.colour == "blue":
-                self.colour = "5555ff"
+                self.colour = "#5555FF"
 
             self.name.setText(self.display_name,
                               color=self.colour,
