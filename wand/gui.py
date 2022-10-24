@@ -393,15 +393,15 @@ class LaserDisplay:
         elif status == WLMMeasurementStatus.UNDER_EXPOSED:
             freq = "-"
             detuning = "Low"
-            colour = "ff9900"
+            colour = "#FF9900"
         elif status == WLMMeasurementStatus.OVER_EXPOSED:
             freq = "-"
             detuning = "High"
-            colour = "ff9900"
+            colour = "#FF9900"
         else:
             freq = "-"
             detuning = "Error"
-            colour = "ff9900"
+            colour = "#FF9900"
 
         self.frequency.setText(freq, color=colour)
         self.detuning.setText(detuning, color=colour)
