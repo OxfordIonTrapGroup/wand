@@ -59,6 +59,7 @@ def load_config(args, name_suffix=""):
     config_args
     """
     config_path, backup_path = get_config_path(args, name_suffix)
+    logger.info(f"Loading configuration from '{config_path}'")
     try:
         config = pyon.load_file(config_path)
     except FileNotFoundError:
