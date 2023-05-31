@@ -24,13 +24,17 @@ from sipyco.common_args import (simple_network_args, bind_address_from_args,
                                 init_logger_from_args, verbosity_args)
 from sipyco.asyncio_tools import atexit_register_coroutine
 
+# v3.0.1 is the most recent Toptica DLC pro firmware version at the time of writing;
+# however, the piezo controller set-point interface has been the same all the way back
+# to much older versions.
+from toptica.lasersdk.asyncio.dlcpro.v3_0_1 import DecopError, DLCpro, NetworkConnection
+
 from wand.drivers.leoni_switch import LeoniSwitch
 from wand.drivers.high_finesse import WLM, WLMException
 from wand.drivers.ni_osa import NiOSA
 from wand.tools import (load_config, backup_config, regular_config_backup,
                         get_config_path, WLMMeasurementStatus)
 from wand.server import ControlInterface
-from wand.drivers.dl_pro import DLPro
 
 
 logger = logging.getLogger(__name__)
@@ -124,7 +128,7 @@ class WandServer:
         self.laser_db = Notifier(self.config["lasers"])
         self.freq_db = Notifier({laser: {
             "freq": None,
-            "status": WLMMeasurementStatus.ERROR,
+            "status": int(WLMMeasurementStatus.ERROR),
             "timestamp": 0
         } for laser in self.lasers})
         self.osa_db = Notifier({laser: {
@@ -188,14 +192,20 @@ class WandServer:
             conf["lock_ready"] = False
 
             try:
-                iface = DLPro(conf["host"],
-                              target=conf.get("target", "laser1"))
-            except OSError:
+                dlcpro = DLCpro(NetworkConnection(conf["host"]))
+                await dlcpro.open()
+                iface = getattr(dlcpro, conf.get("target", "laser1"))
+            except (DecopError, OSError):
                 logger.warning(
-                    "could not connect to laser '{}', retrying in 60s"
+                    "could not connect to laser '{}', retrying in 60s (lock unavailable)"
                     .format(laser))
                 if conf["locked"]:
                     self.control_interface.unlock(laser, conf["lock_owner"])
+                try:
+                    await dlcpro.close()
+                except:
+                    logger.warning(f"failed to clean up connection to '{laser}'", exc_info=True)
+                    pass
                 await asyncio.sleep(60)
                 continue
 
@@ -249,7 +259,7 @@ class WandServer:
                 V_error = max(V_error, -0.25)
 
                 try:
-                    v_pzt = iface.get_pzt_voltage()
+                    v_pzt = await iface.dl.pc.voltage_set.get()
                     v_pzt -= V_error
 
                     if v_pzt > v_pzt_max or v_pzt < v_pzt_min:
@@ -262,7 +272,7 @@ class WandServer:
                         await asyncio.sleep(0)
                         continue
 
-                    iface.set_pzt_voltage(v_pzt)
+                    await iface.dl.pc.voltage_set.set(v_pzt)
 
                 except OSError:
                     logger.warning("Connection to laser '{}' lost"
@@ -272,7 +282,7 @@ class WandServer:
                     break
 
         try:
-            iface.close()
+            await dlcpro.close()
         except Exception:
             pass
         finally:
