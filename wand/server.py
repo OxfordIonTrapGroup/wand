@@ -250,6 +250,11 @@ class ControlInterface:
                 "Laser lock not ready. Problem trying to connect to laser "
                 "controller? See the server log for details...")
 
+        for param in ["lock_poll_time", "lock_gain", "lock_capture_range"]:
+            if param not in self._server.laser_db.raw_view[laser]:
+                raise LockException(f"Lock parameter '{param}' not configured for " +
+                                    f"laser '{laser}'; cannot engage.")
+
         if set_point is None:
             set_point = self._server.laser_db.raw_view[laser]["lock_set_point"]
 
