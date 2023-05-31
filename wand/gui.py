@@ -179,7 +179,7 @@ class LaserDisplay:
                 polls = await self.client.get_poll_times()
                 (self.poll_time, self.fast_poll_time) = polls
             except (OSError, AttributeError):
-                self.setConnected(False)
+                await self.setConnected(False)
                 return
 
             for ccd, exposure in enumerate(self.exposure[:num_ccds]):
@@ -303,14 +303,14 @@ class LaserDisplay:
             await self.client.set_fast_mode(self.laser,
                                             self.fast_mode.isChecked())
         except (OSError, AttributeError):
-            self.setConnected(False)
+            await self.setConnected(False)
 
     async def auto_expose_cb(self):
         try:
             await self.client.set_auto_exposure(self.laser,
                                                 self.auto_exposure.isChecked())
         except (OSError, AttributeError):
-            self.setConnected(False)
+            await self.setConnected(False)
 
     def ref_editable_cb(self):
         """ Enable/disable editing of the frequency reference """
@@ -324,7 +324,7 @@ class LaserDisplay:
             await self.client.set_reference_freq(self.laser,
                                                  self.f_ref.value() * 1e12)
         except (OSError, AttributeError):
-            self.setConnected(False)
+            await self.setConnected(False)
 
     async def exposure_cb(self, ccd):
         try:
@@ -332,7 +332,7 @@ class LaserDisplay:
                                            self.exposure[ccd].value(),
                                            ccd)
         except (OSError, AttributeError):
-            self.setConnected(False)
+            await self.setConnected(False)
 
     def update_fast_mode(self):
         server_fast_mode = self._gui.laser_db[self.laser]["fast_mode"]
