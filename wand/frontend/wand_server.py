@@ -254,13 +254,8 @@ class WandServer:
 
                     if v_pzt > v_pzt_max or v_pzt < v_pzt_min:
                         logger.warning(
-                            "'{}' lock railed, piezo voltage: {:.2f}V outside range {} - {}V"
-                            .format(
-                                laser,
-                                v_pzt,
-                                v_pzt_min,
-                                v_pzt_max,
-                            )
+                            f"'{laser}' lock railed, piezo voltage: {v_pzt:.2f}V " +
+                            f"outside range {v_pzt_min} - {v_pzt_max}V"
                         )
                         self.control_interface.unlock(laser,
                                                       conf["lock_owner"])

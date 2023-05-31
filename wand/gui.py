@@ -71,7 +71,7 @@ class LaserDisplay:
         # context menu
         self.menu = QtWidgets.QMenu()
         self.ref_editable = QtWidgets.QAction("Enable reference changes",
-                                          self.dock)
+                                              self.dock)
         self.ref_editable.setCheckable(True)
         self.menu.addAction(self.ref_editable)
 
