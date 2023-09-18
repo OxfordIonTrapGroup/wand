@@ -6,7 +6,7 @@ import functools
 
 import pyqtgraph as pg
 import pyqtgraph.dockarea as dock
-from PyQt5 import QtWidgets
+from PyQt5 import QtGui, QtWidgets
 
 from sipyco.pc_rpc import AsyncioClient as RPCClient
 
@@ -77,7 +77,7 @@ class LaserDisplay:
 
         for label in [self.detuning, self.name, self.frequency, self.f_ref]:
             label.contextMenuEvent = lambda ev: self.menu.popup(
-                QtWidgets.QCursor.pos())
+                QtGui.QCursor.pos())
             label.mouseReleaseEvent = lambda ev: None
 
         # layout GUI
