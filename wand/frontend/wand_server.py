@@ -461,7 +461,7 @@ class WandServer:
             config_path, _ = get_config_path(self.args, "_server")
             pyon.store_file(config_path, self.config)
         except Exception:
-            logger.warning("error when trying to save config data")
+            logger.exception("error when trying to save config data")
 
 
 def main():
