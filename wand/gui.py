@@ -6,7 +6,9 @@ import functools
 
 import pyqtgraph as pg
 import pyqtgraph.dockarea as dock
-from PyQt5 import QtGui, QtWidgets
+
+# Use pyqtgraph's Qt version detection to select between Qt5 and Qt6.
+from pyqtgraph import QtGui, QtWidgets
 
 from sipyco.pc_rpc import AsyncioClient as RPCClient
 
@@ -70,8 +72,7 @@ class LaserDisplay:
 
         # context menu
         self.menu = QtWidgets.QMenu()
-        self.ref_editable = QtWidgets.QAction("Enable reference changes",
-                                              self.dock)
+        self.ref_editable = QtGui.QAction("Enable reference changes", self.dock)
         self.ref_editable.setCheckable(True)
         self.menu.addAction(self.ref_editable)
 

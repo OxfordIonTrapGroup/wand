@@ -13,7 +13,7 @@ from sipyco.asyncio_tools import atexit_register_coroutine
 from sipyco.sync_struct import Subscriber
 
 from qasync import QEventLoop
-from PyQt5 import QtWidgets, QtGui
+from pyqtgraph import QtGui, QtWidgets
 import pyqtgraph.dockarea as dock
 
 from wand.gui import LaserDisplay
