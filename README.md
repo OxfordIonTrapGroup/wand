@@ -16,7 +16,7 @@ Since many applications can tolerate data that is slightly old, the server store
 
 ## Installation
 
-From inside Oxford, this is installed as part of the `artiq_env` Conda package.
+From inside Oxford, this is installed as part of the `artiq-oitg` Poetry meta-package.
 
 From outside Oxford, use Pip to install into an [ARTIQ](https://github.com/m-labs/artiq) Conda environment. You may also need to Pip install a couple of extra packages like `pydaqmx`.
 
