@@ -3,3 +3,4 @@
 *.pyon
 !wand/examples/*.pyon
 wand/log.txt
+*.pyc
