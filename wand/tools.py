@@ -63,6 +63,10 @@ def load_config(args, name_suffix=""):
     try:
         config = pyon.load_file(config_path)
     except FileNotFoundError:
+        if not backup_path:
+            logger.error("Server configuration file not found, but network drive " +
+                         "backup path also not set (consider passing --backup-dir)")
+            raise
         logger.warning("Unable to find server configuration file, "
                        "restoring from backup")
         shutil.copyfile(backup_path, config_path)
