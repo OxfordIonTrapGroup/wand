@@ -72,14 +72,14 @@ class NiOSA:
 
     def clear(self):
         """ Stops and clears all NI DAQ tasks we have created """
-        for _, osa in self.osas.items():
-            task_handle = self.handles.get(osa)
+        for name in self.osas.keys():
+            task_handle = self.handles.get(name)
             if task_handle is not None:
                 try:
                     PyDAQmx.DAQmxStopTask(task_handle)
                 finally:
                     PyDAQmx.DAQmxClearTask(task_handle)
-                    self.handles[osa] = None
+                    self.handles[name] = None
 
     def get_trace(self, osa, timeout=10):
         """ Captures and returns an OSA trace.
