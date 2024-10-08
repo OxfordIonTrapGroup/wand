@@ -48,10 +48,15 @@ class WLM:
         lib.SetExposureModeNum.argtypes = [c_long, c_bool]
         lib.GetFrequencyNum.restype = c_double
         lib.GetFrequencyNum.argtypes = [c_long, c_double]
-        lib.GetAveragingSettingNum.restype = c_long
-        lib.GetAveragingSettingNum.argtypes = [c_long, c_long, c_long]
-        lib.SetAveragingSettingNum.restype = c_long
-        lib.SetAveragingSettingNum.argtypes = [c_long, c_long, c_long]
+
+        try:
+            lib.GetAveragingSettingNum.restype = c_long
+            lib.GetAveragingSettingNum.argtypes = [c_long, c_long, c_long]
+            lib.SetAveragingSettingNum.restype = c_long
+            lib.SetAveragingSettingNum.argtypes = [c_long, c_long, c_long]
+        except AttributeError:
+            # Older versions (7.1632) don't have these.
+            pass
 
         # Check the WLM server application is running and start it if necessary
         if not lib.Instantiate(wlm.cInstCheckForWLM, 0, 0, 0):
@@ -148,11 +153,14 @@ class WLM:
             raise WLMException("Unrecognised pattern data size")
         self._interferometer_enabled = False
 
-        for ch in range(self._num_channels):
-            if lib.GetAveragingSettingNum(ch + 1, wlm.cmiAveragingCount, 0) != 1:
-                logger.warning(f"Averaging was enabled on channel {ch + 1}, disabling")
-                if lib.SetAveragingSettingNum(ch + 1, wlm.cmiAveragingCount, 1) < 0:
-                    raise WLMException(f"Error disabling averaging on channel {ch + 1}")
+        if hasattr(lib, "GetAveragingSettingNum"):
+            for ch in range(self._num_channels):
+                if lib.GetAveragingSettingNum(ch + 1, wlm.cmiAveragingCount, 0) != 1:
+                    logger.warning(f"Averaging was enabled on channel {ch + 1}, disabling")
+                    if lib.SetAveragingSettingNum(ch + 1, wlm.cmiAveragingCount, 1) < 0:
+                        raise WLMException(f"Error disabling averaging on channel {ch + 1}")
+        else:
+            logger.warning("WLM software version does not have averaging API; ensure it is disabled")
 
         logger.info("Connected to " + self.identify())
 
