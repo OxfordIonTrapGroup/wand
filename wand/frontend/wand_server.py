@@ -101,6 +101,8 @@ class WandServer:
         elif self.config["switch"]["type"] == "leoni":
             self.switch = LeoniSwitch(
                 self.config["switch"]["ip"], args.simulation)
+        elif self.config["switch"]["type"] == None:
+            self.switch = None
         else:
             raise ValueError("Unrecognised switch type: {}".format(
                 self.config["switch"]["type"]))
@@ -305,12 +307,11 @@ class WandServer:
             laser = meas["laser"]
             laser_conf = self.laser_db.raw_view[laser]
 
-            if laser != active_laser:
+            if laser != active_laser and self.switch is not None:
                 self.switch.set_active_channel(laser_conf["channel"])
 
                 # Switching is slow so we might as well take an OSA trace!
                 meas["get_osa_trace"] = True
-                active_laser = meas["laser"]
 
                 # We only need to change the range after switching channels
                 try:
@@ -320,6 +321,7 @@ class WandServer:
                     pass
 
                 await asyncio.sleep(self.config["switch"]["dead_time"])
+            active_laser = meas["laser"]
 
             exposure = laser_conf["exposure"]
             for ccd, exp in enumerate(exposure):
