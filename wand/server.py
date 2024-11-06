@@ -313,7 +313,7 @@ class ControlInterface:
         capture_range = _validate_numeric(capture_range, "capture_range")
 
         laser_db = self._server.laser_db
-        laser_db[laser]["lock_gain"] = abs(gain)
+        laser_db[laser]["lock_gain"] = gain
         laser_db[laser]["lock_poll_time"] = abs(poll_time)
         laser_db[laser]["lock_capture_range"] = abs(capture_range)
 

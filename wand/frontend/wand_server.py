@@ -24,10 +24,7 @@ from sipyco.common_args import (simple_network_args, bind_address_from_args,
                                 init_logger_from_args, verbosity_args)
 from sipyco.asyncio_tools import atexit_register_coroutine
 
-# v3.0.1 is the most recent Toptica DLC pro firmware version at the time of writing;
-# however, the piezo controller set-point interface has been the same all the way back
-# to much older versions.
-from toptica.lasersdk.asyncio.dlcpro.v3_0_1 import DecopError, DLCpro, NetworkConnection
+from toptica.lasersdk.asyncio.client import DecopError, Client as DLCpro, NetworkConnection
 
 from wand.drivers.leoni_switch import LeoniSwitch
 from wand.drivers.high_finesse import WLM, WLMException
@@ -196,7 +193,6 @@ class WandServer:
             try:
                 dlcpro = DLCpro(NetworkConnection(conf["host"]))
                 await dlcpro.open()
-                iface = getattr(dlcpro, conf.get("target", "laser1"))
             except (DecopError, OSError):
                 logger.warning(
                     "could not connect to laser '{}', retrying in 60s (lock unavailable)"
@@ -263,7 +259,9 @@ class WandServer:
                 V_error = max(V_error, -0.25)
 
                 try:
-                    v_pzt = await iface.dl.pc.voltage_set.get()
+                    target = conf.get("target", "laser1")
+                    actuator = conf.get("actuator", "dl:pc:voltage-set")
+                    v_pzt = await dlcpro.get(":".join([target, actuator]))
                     v_pzt -= V_error
 
                     if v_pzt > v_pzt_max or v_pzt < v_pzt_min:
@@ -276,7 +274,7 @@ class WandServer:
                         await asyncio.sleep(0)
                         continue
 
-                    await iface.dl.pc.voltage_set.set(v_pzt)
+                    await dlcpro.set(":".join([target, actuator]), v_pzt)
 
                 except OSError:
                     logger.warning("Connection to laser '{}' lost"
