@@ -80,7 +80,7 @@ class WLM:
         self.wlm_fw_rev = lib.GetWLMVersion(2)
         self.wlm_fw_build = lib.GetWLMVersion(3)
 
-        if self.wlm_model < 5 or self.wlm_model > 8:
+        if self.wlm_model < 5 or self.wlm_model > 9:
             raise WLMException("Unrecognised WLM model: {}".format(
                 self.wlm_model))
 
