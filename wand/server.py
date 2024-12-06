@@ -55,6 +55,9 @@ class ControlInterface:
         if not self._server.laser_db.raw_view[laser]["host"]:
             raise ValueError("No controller found for '{}'".format(laser))
 
+    def ping(self):
+        return True
+
     async def get_freq(self, laser, age=0, priority=3, get_osa_trace=False,
                        blocking=True, mute=False, offset_mode=False):
         """ Schedule a frequency measurement and, optionally, capture an osa
