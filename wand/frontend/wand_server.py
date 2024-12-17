@@ -111,6 +111,8 @@ class WandServer:
 
         self.wake_locks = {laser: asyncio.Event() for laser in self.lasers}
 
+        self.task_refs = set()
+
         # schedule initial frequency/osa readings all lasers
         self.measurements_queued.set()
         for laser in self.lasers:
@@ -166,14 +168,15 @@ class WandServer:
             self.server_notify.start(bind, self.args.port_notify))
         atexit_register_coroutine(self.server_notify.stop)
 
-        asyncio.ensure_future(self.measurement_task())
+        self.task_refs.add(asyncio.ensure_future(self.measurement_task()))
 
         for laser in self.lasers:
-            asyncio.ensure_future(self.lock_task(laser))
+            self.task_refs.add(asyncio.ensure_future(self.lock_task(laser)))
 
         # backup of configuration file
         backup_config(self.args, "_server")
-        asyncio.ensure_future(regular_config_backup(self.args, "_server"))
+        self.task_refs.add(asyncio.ensure_future(
+            regular_config_backup(self.args, "_server")))
         atexit.register(backup_config, self.args, "_server")
 
         logger.info("server started")
