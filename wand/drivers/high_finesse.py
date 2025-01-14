@@ -1,13 +1,12 @@
 import logging
 import time
 import numpy as np
+import platform
+import ctypes
+from ctypes import (POINTER, byref, cast, wintypes,
+                    c_bool, c_double, c_int16, c_long, c_ushort, c_void_p)
+
 from wand.tools import WLMMeasurementStatus
-
-try:  # allow us to run simulations on Linux
-    from ctypes import windll, c_double, c_ushort, c_long, c_bool, byref, c_short
-except ImportError:
-    pass
-
 from wand.drivers import wlm_constants as wlm
 
 # These wavelength ranges do not match those in the documentation, but are
@@ -31,9 +30,15 @@ class WLM:
         self.active_switch_ch = 1
 
         try:
-            self.lib = lib = windll.wlmData
+            
+            if platform.system() == 'Windows':
+                self.lib = lib = ctypes.windll.wlmData
+            elif platform.system() == 'Linux':
+                self.lib = lib = ctypes.CDLL("libwlmData.so")
+
+            
         except Exception as e:
-            raise WLMException("Failed to load WLM DLL: {}".format(e))
+            raise WLMException("Failed to load WLM DLL: {}".format(e)) from e
 
         # configure DLL function arg/return types
         lib.Operation.restype = c_long
@@ -48,6 +53,8 @@ class WLM:
         lib.SetExposureModeNum.argtypes = [c_long, c_bool]
         lib.GetFrequencyNum.restype = c_double
         lib.GetFrequencyNum.argtypes = [c_long, c_double]
+        lib.GetPatternDataNum.restype = c_long
+        lib.GetPatternDataNum.argtypes = [c_long, c_long, c_void_p]
 
         try:
             lib.GetAveragingSettingNum.restype = c_long
@@ -131,6 +138,8 @@ class WLM:
                 logger.warning("Error setting WLM exposure mode")
 
             # hook up wait for event mechanism
+        self.lib.Instantiate(
+            wlm.cInstNotification, wlm.cNotifyRemoveWaitEvent, 0, 0)
         if self.lib.Instantiate(wlm.cInstNotification,
                                 wlm.cNotifyInstallWaitEvent,
                                 c_long(max(self._exp_max) + 100),  # timeout
@@ -148,7 +157,7 @@ class WLM:
             raise WLMException("Error finding the interferometer data length")
         pattern_size = self.lib.GetPatternItemSize(wlm.cSignal1Interferometers)
         if pattern_size == 2:
-            self._pattern_dtype = np.int16
+            self._pattern_dtype = c_int16
         else:
             raise WLMException("Unrecognised pattern data size")
         self._interferometer_enabled = False
@@ -287,7 +296,7 @@ class WLM:
         p_double = c_double()
         ret = 0
 
-        logger.debug("Waiting for WLM event...")
+        logger.debug("Waiting for WLM event %s...", [wlm.event_to_str(e) for e in event_values])
 
         t0 = time.time()
         while True:
@@ -295,7 +304,7 @@ class WLM:
                                            byref(p_int),
                                            byref(p_double))
             if ret == -1:
-                raise WLMException("Timeout while waiting for event")
+                ret_str = "Timeout"
             elif ret == 1:
                 ret_str = "more in pipeline"
             elif ret == 2:
@@ -310,6 +319,9 @@ class WLM:
                 wlm.event_to_str(event),
                 p_int.value,
                 p_double.value))
+
+            if ret == -1:
+                raise WLMException("Timeout while waiting for event")
 
             # NB: cmiTriggerState appears twice:
             #   - once directly after the TriggerMeasurement call, with
@@ -445,16 +457,17 @@ class WLM:
                 raise WLMException("Error enabling interferometer export")
             self._interferometer_enabled = True
 
-        data = (c_short * self._pattern_count)()
+        raw_data = (wintypes.DWORD * self._pattern_count)()
         ret = self.lib.GetPatternDataNum(self.active_switch_ch,
                                          wlm.cSignal1Interferometers,
-                                         data)
+                                         raw_data)
         if ret < 0:
             raise WLMException(
                 "Unable to get interferometer pattern: {}".format(ret)
             )
 
-        return np.array(data).astype(np.int16)
+        data_p = cast(raw_data, POINTER(self._pattern_dtype * self._pattern_count))
+        return np.ctypeslib.as_array(data_p.contents)
 
     class Switch:
         """ High-Finesse fibre switch controlled by the WLM """
