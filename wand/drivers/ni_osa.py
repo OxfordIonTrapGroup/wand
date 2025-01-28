@@ -119,7 +119,6 @@ class NiOSA:
                     num_samples,
                     byref(read),
                     None)
-
             except DAQError as err:
                 self.clear()
                 raise OSAException(err)
@@ -131,7 +130,5 @@ class NiOSA:
         if config["downsample"] > 1:
             trace = decimate(trace, config["downsample"])
 
-        trace /= config["v_span"] / 2
-        trace = np.round(trace * 32767).astype(np.int16)
-
-        return trace
+        int_scale = 32767 / (config["v_span"] / 2)
+        return np.round(trace * int_scale).astype(np.int16)
