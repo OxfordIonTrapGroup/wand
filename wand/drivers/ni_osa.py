@@ -94,7 +94,8 @@ class NiOSA:
         :param timeout: data acquisition timeout (default: 10)
         :returns: the trace as an array of numpy int16s
         """
-        num_samples = self.osas[osa]["num_samples"]
+        config = self.osas[osa]
+        num_samples = config["num_samples"]
         read = c_int32()
 
         if self.simulation:
@@ -102,7 +103,7 @@ class NiOSA:
                 + np.random.uniform(-0.05, +0.05) * num_samples
             trace = np.random.normal(loc=0, scale=0.05, size=num_samples)
             trace += 900. / ((x) ** 2 + 1000)
-            trace *= self.osas[osa]["v_span"] / 2
+            trace *= config["v_span"] / 2
 
         else:
             task_handle = self.handles[osa]
@@ -127,10 +128,10 @@ class NiOSA:
                 self.clear()
                 raise OSAException("Error acquiring OSA trace")
 
-        if self.osas[osa]["downsample"] > 1:
-            trace = decimate(trace, self.osas[osa]["downsample"])
+        if config["downsample"] > 1:
+            trace = decimate(trace, config["downsample"])
 
-        trace /= self.osas[osa]["v_span"] / 2
+        trace /= config["v_span"] / 2
         trace = np.round(trace * 32767).astype(np.int16)
 
         return trace
