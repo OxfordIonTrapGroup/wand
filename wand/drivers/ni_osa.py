@@ -130,5 +130,10 @@ class NiOSA:
         if config["downsample"] > 1:
             trace = decimate(trace, config["downsample"])
 
+        if config.get("v_offset", 0.0) != 0.0:
+            trace += config["v_offset"]
+        if config.get("invert", False):
+            trace = -trace
+
         int_scale = 32767 / (config["v_span"] / 2)
         return np.round(trace * int_scale).astype(np.int16)
