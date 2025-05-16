@@ -339,7 +339,7 @@ class WandServer:
 
             exposure = laser_conf["exposure"]
             for ccd, exp in enumerate(exposure):
-                self.wlm.set_exposure(exposure[ccd], ccd)
+                self.wlm.set_exposure(exp, ccd)
 
             if laser_conf.get("osa", "wlm") == "wlm":
                 freq_osa_measurement = self.loop.run_in_executor(
@@ -384,6 +384,7 @@ class WandServer:
             # auto-exposure
             if laser_conf["auto_exposure"]:
                 new_exp = laser_conf["exposure"]
+                old_exp = new_exp.copy()
                 for ccd, peak in enumerate(peaks):
 
                     # don't try to find a suitable exposure for lasers that
@@ -397,7 +398,7 @@ class WandServer:
                         new_exp[ccd] = min(new_exp[ccd], self.exp_max[ccd])
                         new_exp[ccd] = max(new_exp[ccd], self.exp_min[ccd])
 
-                if new_exp != exp:
+                if new_exp != old_exp:
                     self.laser_db[laser]["exposure"] = new_exp
                     self.save_config_file()
 
