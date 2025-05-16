@@ -316,6 +316,7 @@ class WandServer:
             # process in order of priority, followed by submission time
             priorities = [meas["priority"] for meas in self.queue]
             meas = self.queue[priorities.index(max(priorities))]
+            logger.debug("starting measurement task: %s", meas)
 
             laser = meas["laser"]
             laser_conf = self.laser_db.raw_view[laser]
