@@ -274,7 +274,7 @@ class WLM:
         self._update_exposure()  # synchronise WLM with self._exposure
         for pipeline_stage in range(3):
             self._trigger_single_measurement()
-            if pipeline_stage == 1:
+            if pipeline_stage == 0:
                 self._update_exposure(self._exp_min)
 
     def _trigger_single_measurement(self):
@@ -342,7 +342,7 @@ class WLM:
           WLMMeasurementStatus and frequency is in Hz.
         """
         if self.simulation:
-            return 0, WLMMeasurementStatus.OKAY
+            return WLMMeasurementStatus.OKAY, 0
 
         # this should never time out, but it does...
         # I've had a long discussion with the HF engineers about why this
