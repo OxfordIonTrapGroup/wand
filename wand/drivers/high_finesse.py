@@ -55,6 +55,8 @@ class WLM:
         lib.GetFrequencyNum.argtypes = [c_long, c_double]
         lib.GetPatternDataNum.restype = c_long
         lib.GetPatternDataNum.argtypes = [c_long, c_long, c_void_p]
+        lib.Calibration.restype = c_long
+        lib.Calibration.argtypes = [c_long, c_long, c_double, c_long]
 
         try:
             lib.GetAveragingSettingNum.restype = c_long
@@ -475,6 +477,14 @@ class WLM:
 
         data_p = cast(raw_data, POINTER(self._pattern_dtype * self._pattern_count))
         return np.ctypeslib.as_array(data_p.contents)
+
+    def calibrate(self, freq, channel):
+        freq_THz = freq / 1e12
+        ret = self.lib.Calibration(wlm.cOther, wlm.cReturnFrequency, freq_THz, channel)
+        logger.debug("Calibration(cOther, cReturnFreq, %s, %s) returned %s", freq_THz, channel, ret)
+        if ret < 0:
+            raise WLMException(
+                f"Calibration unsuccessful, return code: {ret}")
 
     class Switch:
         """ High-Finesse fibre switch controlled by the WLM """

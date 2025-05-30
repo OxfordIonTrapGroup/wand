@@ -27,6 +27,10 @@ class LockException(Exception):
     pass
 
 
+class CalibrationException(Exception):
+    pass
+
+
 def get_config_path(args, name_suffix=""):
     config_file = "{}{}_config.pyon".format(args.name, name_suffix)
 

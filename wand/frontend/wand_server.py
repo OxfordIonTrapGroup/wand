@@ -480,6 +480,12 @@ class WandServer:
         except Exception:
             logger.warning("error when trying to save config data")
 
+    def calibrate_wlm(self, laser):
+        freq = self.laser_db.raw_view[laser]["f_ref"]
+        channel = self.laser_db.raw_view[laser]["channel"]
+
+        self.wlm.calibrate(freq, channel)
+
 
 def main():
     server = WandServer()

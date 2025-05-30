@@ -4,7 +4,7 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING
 
-from wand.tools import LaserOwnedException, LockException
+from wand.tools import CalibrationException, LaserOwnedException, LockException
 
 if TYPE_CHECKING:
     from frontend.wand_server import WandServer
@@ -335,3 +335,29 @@ class ControlInterface:
 
         self._server.save_config_file()
         self._server.wake_locks[laser].set()
+
+    async def calibrate_wlm(self, laser, verify=True, max_dev=None):
+        """ Calibrate the wavemeter to a laser's reference frequency
+
+        :param laser: the laser to calibrate the wavemeter to, using this
+          laser's configured reference frequency
+        :param verify: If True, check the laser's current frequency and only
+          calibrate if it is within max_dev of its reference frequency.
+          Raise a CalibrationException if it is not. If False, just calibrate
+          without checks. Defaults to True.
+        :param max_dev: Maximum allowed deviation (Hz) of the laser's current
+          frequency to its reference frequency. Only used if verify = True.
+          Defaults to the laser's configured lock capture range.
+        """
+        self._validate_laser(laser)
+        _validate_bool(verify, "verify")
+        if verify:
+            max_dev = max_dev or self._server.laser_db.raw_view[laser]["lock_capture_range"]
+            max_dev = _validate_numeric(max_dev, "max_dev")
+            _, cur_dev, _ = await self.get_freq(laser, priority=10, offset_mode=True)
+            if abs(max_dev) < abs(cur_dev):
+                raise CalibrationException(
+                    f"Laser '{laser}' is further away from its reference frequency " +
+                    f"than allowed: {abs(max_dev)} < {abs(cur_dev)}")
+
+        self._server.calibrate_wlm(laser)
