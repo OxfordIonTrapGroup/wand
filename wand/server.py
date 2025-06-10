@@ -56,7 +56,9 @@ class ControlInterface:
                                       "(you are '{}')!"
                                       .format(current_owner, name))
 
-        if not self._server.laser_db.raw_view[laser]["host"]:
+    def _check_host(self, laser):
+        if ("host" not in self._server.laser_db.raw_view[laser] or
+            not self._server.laser_db.raw_view[laser]["host"]):
             raise ValueError("No controller found for '{}'".format(laser))
 
     def ping(self) -> bool:
@@ -257,6 +259,7 @@ class ControlInterface:
         """
         self._validate_laser(laser)
         self._check_owner(laser, name)
+        self._check_host(laser)
         set_point = _validate_numeric(set_point, "set_point")
         timeout = None if timeout is None else _validate_numeric(timeout,
                                                                  "timeout")
