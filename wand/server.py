@@ -73,6 +73,10 @@ class ControlInterface:
             return True
         return False
 
+    def terminate(self):
+        """ Terminate the WAnD server."""
+        self._server.loop.stop()
+
     async def get_freq(self, laser, age=0, priority=3, get_osa_trace=False,
                        blocking=True, mute=False, offset_mode=False):
         """ Schedule a frequency measurement and, optionally, capture an osa
