@@ -55,8 +55,17 @@ class ControlInterface:
         if not self._server.laser_db.raw_view[laser]["host"]:
             raise ValueError("No controller found for '{}'".format(laser))
 
-    def ping(self):
-        return True
+    def ping(self) -> bool:
+        """ Ping the connected wavemeter.
+
+        :return: returns True if in simulation mode or the wavemeter
+        is responsive, returns False if the wavemeter returns an error.
+        """
+        if self._server.wlm.simulation:
+            return True
+        if self._server.wlm.lib.GetWLMVersion(0) > 0:
+            return True
+        return False
 
     async def get_freq(self, laser, age=0, priority=3, get_osa_trace=False,
                        blocking=True, mute=False, offset_mode=False):
