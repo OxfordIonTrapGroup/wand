@@ -16,6 +16,7 @@ import time
 import logging
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
+from typing import TypedDict
 
 from sipyco import pyon
 from sipyco.pc_rpc import Server as RPCServer
@@ -71,6 +72,15 @@ def get_argparser():
     return parser
 
 
+class Measurement(TypedDict):
+    laser: str
+    priority: int
+    expiry: float
+    id: int
+    get_osa_trace: bool
+    done: asyncio.Event
+
+
 class WandServer:
     def __init__(self):
 
@@ -107,7 +117,7 @@ class WandServer:
         # measurement queue, processed by self.measurement_task
         self.measurement_ids = task_id_generator()
         self.measurements_queued = asyncio.Event()
-        self.queue = []
+        self.queue: list[Measurement] = []
 
         self.wake_locks = {laser: asyncio.Event() for laser in self.lasers}
 
@@ -306,6 +316,7 @@ class WandServer:
             # process in order of priority, followed by submission time
             priorities = [meas["priority"] for meas in self.queue]
             meas = self.queue[priorities.index(max(priorities))]
+            logger.debug("starting measurement task: %s", meas)
 
             laser = meas["laser"]
             laser_conf = self.laser_db.raw_view[laser]
