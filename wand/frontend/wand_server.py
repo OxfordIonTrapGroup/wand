@@ -32,7 +32,6 @@ from toptica.lasersdk.asyncio.client import DecopError, NetworkConnection
 
 from wand.drivers.high_finesse import WLM, WLMException
 from wand.drivers.leoni_switch import LeoniSwitch
-from wand.drivers.ni_osa import NiOSA
 from wand.server import ControlInterface
 from wand.tools import (
     WLMMeasurementStatus,
@@ -104,6 +103,7 @@ class WandServer:
         self.wlm = WLM(args.simulation)
 
         if self.config.get("osas", "wlm") != "wlm":
+            from wand.drivers.ni_osa import NiOSA
             self.osas = NiOSA(self.config["osas"], args.simulation)
 
         self.exp_min = self.wlm.get_exposure_min()
