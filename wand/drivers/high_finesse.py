@@ -136,6 +136,7 @@ class WLM:
             ]
         else:
             raise NotImplementedError("Number of CCDs not supported")
+        logger.debug("min/max exposure: %s, %s", self._exp_min, self._exp_max)
 
         self._exposure = self._exp_min.copy()
         self._set_exp = [
@@ -179,11 +180,25 @@ class WLM:
 
         if hasattr(lib, "GetAveragingSettingNum"):
             for ch in range(self._num_channels):
-                if lib.GetAveragingSettingNum(ch + 1, wlm.cmiAveragingCount, 0) != 1:
+                ret = lib.GetAveragingSettingNum(ch + 1, wlm.cmiAveragingCount, 0)
+                logger.debug(
+                    "GetAveragingSettingNum(%s, %s, 0) returned %s",
+                    ch + 1,
+                    wlm.cmiAveragingCount,
+                    ret,
+                )
+                if ret != 1:
                     logger.warning(
                         f"Averaging was enabled on channel {ch + 1}, disabling"
                     )
-                    if lib.SetAveragingSettingNum(ch + 1, wlm.cmiAveragingCount, 1) < 0:
+                    ret = lib.SetAveragingSettingNum(ch + 1, wlm.cmiAveragingCount, 1)
+                    logger.debug(
+                        "lib.SetAveragingSettingNum(%s, %s, 1) returned %s",
+                        ch + 1,
+                        wlm.cmiAveragingCount,
+                        ret,
+                    )
+                    if ret < 0:
                         raise WLMException(
                             f"Error disabling averaging on channel {ch + 1}"
                         )
@@ -250,7 +265,15 @@ class WLM:
                 continue
             self._set_exp[self.active_switch_ch - 1][ccd] = exp
 
-            if 0 > self.lib.SetExposureNum(self.active_switch_ch, ccd + 1, exp):
+            ret = self.lib.SetExposureNum(self.active_switch_ch, ccd + 1, exp)
+            logger.debug(
+                "SetExposureNum(%s, %s, %s) returned %s",
+                self.active_switch_ch,
+                ccd + 1,
+                exp,
+                ret,
+            )
+            if ret < 0:
                 raise WLMException(
                     "Unable to set WLM exposure time for ccd {} to {} ms".format(
                         ccd, exp
@@ -305,8 +328,8 @@ class WLM:
         """
         self.lib.ClearWLMEvents()  # flush the WLM pipeline
 
-        if self.lib.TriggerMeasurement(wlm.cCtrlMeasurementTriggerSuccess):
-            raise WLMException("Error triggering WLM measurement cycle")
+        if ret := self.lib.TriggerMeasurement(wlm.cCtrlMeasurementTriggerSuccess):
+            raise WLMException(f"Error triggering WLM measurement cycle, {ret}")
 
         self._wait_for_event([wlm.cmiTriggerState], wlm.cCtrlMeasurementTriggerSuccess)
 
@@ -516,6 +539,7 @@ class WLM:
             if self._wlm.simulation:
                 return
             ret = self._wlm.lib.SetSwitcherChannel(channel)
+            logger.debug("SetSwitcherChannel(%s) returned %s", channel, ret)
             if ret < 0:
                 raise WLMException(
                     "Unable to set WLM switcher channel {}  to: {}".format(channel, ret)

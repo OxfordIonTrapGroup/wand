@@ -15,6 +15,7 @@ import atexit
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
+from typing import TypedDict
 
 import numpy as np
 from sipyco import pyon
@@ -88,6 +89,15 @@ def get_argparser():
     return parser
 
 
+class Measurement(TypedDict):
+    laser: str
+    priority: int
+    expiry: float
+    id: int
+    get_osa_trace: bool
+    done: asyncio.Event
+
+
 class WandServer:
     def __init__(self):
         self.args = args = get_argparser().parse_args()
@@ -104,6 +114,7 @@ class WandServer:
 
         if self.config.get("osas", "wlm") != "wlm":
             from wand.drivers.ni_osa import NiOSA
+
             self.osas = NiOSA(self.config["osas"], args.simulation)
 
         self.exp_min = self.wlm.get_exposure_min()
@@ -124,7 +135,7 @@ class WandServer:
         # measurement queue, processed by self.measurement_task
         self.measurement_ids = task_id_generator()
         self.measurements_queued = asyncio.Event()
-        self.queue = []
+        self.queue: list[Measurement] = []
 
         self.wake_locks = {laser: asyncio.Event() for laser in self.lasers}
 
@@ -337,6 +348,7 @@ class WandServer:
             # process in order of priority, followed by submission time
             priorities = [meas["priority"] for meas in self.queue]
             meas = self.queue[priorities.index(max(priorities))]
+            logger.debug("starting measurement task: %s", meas)
 
             laser = meas["laser"]
             laser_conf = self.laser_db.raw_view[laser]

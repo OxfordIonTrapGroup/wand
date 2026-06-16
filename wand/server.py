@@ -1,10 +1,14 @@
 import asyncio
 import logging
 import time
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from wand.tools import LaserOwnedException, LockException
+
+if TYPE_CHECKING:
+    from wand.frontend.wand_server import WandServer
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +38,7 @@ def _validate_bool(field, name):
 class ControlInterface:
     """RPC interface to the WAnD server"""
 
-    def __init__(self, wand_server):
+    def __init__(self, wand_server: "WandServer"):
         self._server = wand_server
 
     def _validate_laser(self, laser):
